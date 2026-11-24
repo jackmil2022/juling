@@ -1,0 +1,381 @@
+"""条目最终提示词的预览渲染。
+
+回答「这个条目现在生成，送进图像 / 视频模型的提示词逐字是什么」。渲染函数与执行路径同一个
+出口（``lib.prompts.prompt_builders.render_storyboard_image_prompt`` /
+``lib.prompts.prompt_utils.render_storyboard_video_prompt``）。参考图侧与执行器取同一份生成输入
+（``lib.artifacts.generation_input``）：生成会被拒时该侧不可用并带缺口码，否则按与执行器相同的
+图像后端参考图上限裁剪后渲染，「图N」编号与实发一致；裁剪发生时带上与执行期任务结果同形的
+warning，用户在生成前就能看到有参考图不会随请求发出。视频侧按执行期同一口径备齐创作类型与
+声音绑定。
+
+只读：不向供应商发请求、不产生费用、不写产物清单。参考生视频路径的 unit 正文本身即提示词
+主体，最终文本复用参考视频请求投影与共享预览 renderer。
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from dataclasses import dataclass, field, replace
+from pathlib import Path
+from typing import Any
+
+from lib.artifacts.artifact_currency import resolve_artifact_episode
+from lib.artifacts.artifact_input_claims import resolve_usable_episode_script_input
+from lib.artifacts.generation_input import (
+    StoryboardImageInput,
+    project_input_observation,
+    storyboard_image_input,
+)
+from lib.artifacts.version_manager import VersionManager
+from lib.infra.async_thread import run_sync_transaction
+from lib.infra.api_errors import BadRequestError
+from lib.project.project_manager import ProjectManager, get_project_manager, is_reference_video_project
+from lib.prompts.minimax import h3_reference_slot
+from lib.prompts.prompt_builders import render_storyboard_image_prompt
+from lib.prompts.prompt_utils import render_storyboard_video_prompt
+from lib.script.reference_video.request_projection import project_reference_unit_request
+from lib.script.script_editor import resolve_items
+from lib.script.script_models import get_generated_assets, resolve_content_mode
+from lib.script.script_skeleton import resolve_script_kind
+from lib.script.storyboard_sequence import find_storyboard_item, get_storyboard_items
+from server.services.admission.reference_admission import input_refusal_error
+from server.services.admission.reference_prompt_preview import (
+    reference_prompt_preview_facts,
+)
+from server.services.admission.video_batch_admission import storyboard_video_request_facts
+from server.services.admission.storyboard_video_input import project_storyboard_video_input
+from lib.generation.video_request_facts import VideoRequestFactsFailure
+from server.services.tasks.generation_context import ImageLaneRequest, resolve_generation_context
+
+logger = logging.getLogger(__name__)
+
+#: 条目的该提示词为待生成（``None`` 或字段不在）时的不可用原因：机械转换后尚未补写。
+UNAVAILABLE_PENDING = "prompt_preview_pending"
+#: 提示词字段在场但为空（空串 / 空对象）时的不可用原因。
+UNAVAILABLE_MISSING = "prompt_preview_missing"
+#: 提示词字段在场但形状不合规、渲染函数拒绝时的不可用原因。
+UNAVAILABLE_INVALID = "prompt_preview_invalid"
+
+
+class ScriptItemNotFound(LookupError):
+    """剧本里没有该条目 id。"""
+
+
+@dataclass(frozen=True)
+class RenderedPrompt:
+    """一侧提示词的渲染结果：``text`` 与 ``unavailable`` 恰有一个非 ``None``。
+
+    ``warnings`` 是不阻断预览的提示（如参考图被裁剪或超出视频生成上限），与任务
+    ``result.warnings`` 的 ``{key, params}`` 条目同形；只在 ``text`` 渲染成功时出现。
+    """
+
+    text: str | None = None
+    unavailable: str | None = None
+    #: 不可用原因的文案参数：生成输入被拒时带全部缺口（与执行期错误详情同形）。
+    unavailable_params: dict[str, object] = field(default_factory=dict)
+    is_text_form: bool = False
+    warnings: tuple[dict[str, Any], ...] = ()
+    references: tuple[dict[str, str], ...] = ()
+    editable_text: str | None = None
+    narrator_reference_missing: bool = False
+
+
+@dataclass(frozen=True)
+class ItemPromptPreview:
+    item_id: str
+    content_mode: str
+    storyboard_image: RenderedPrompt
+    video: RenderedPrompt
+    storyboard_images: dict[str, str] = field(default_factory=dict)
+    submitted_video: RenderedPrompt | None = None
+
+
+def _submitted_storyboard_video(
+    project_path: Path, script_file: str, item_id: str, item: dict[str, Any],
+) -> RenderedPrompt | None:
+    if not get_generated_assets(item).get("video_clip"):
+        return None
+    versions = VersionManager(project_path).get_versions("videos", item_id)["versions"]
+    record = next((version for version in versions if version["is_current"]), None)
+    if not record or record.get("execution_script_file") != script_file:
+        return None
+    text = record.get("prompt")
+    media = record.get("execution_provider_media")
+    if not isinstance(text, str) or not text or not isinstance(media, list):
+        return None
+    # A complete snapshot includes Director's boundary instructions, which are added at workflow binding.
+    snapshot = record.get("execution_storyboard_preview")
+    if isinstance(snapshot, dict):
+        return RenderedPrompt(text=snapshot["text"], references=tuple(snapshot["references"]))
+    # Older checkpoints still have their actual media list; never infer it from today's neighbors.
+    counts = {"image": 0, "video": 0, "audio": 0}
+    director = any(tag in text for tag in ("<Picture ", "<Video ", "<Audio "))
+    references = []
+    for ref in media:
+        role = ref["role"]
+        kind = {"reference_image": "image", "reference_audio": "audio", "previous_video": "video", "next_video": "video"}.get(role)
+        if kind is None:
+            continue
+        counts[kind] += 1
+        references.append({"kind": kind, "name": ref["logical_name"], "path": ref["source_locator"],
+                           "slot": h3_reference_slot(kind, counts[kind], director=director),
+                           **({"role": role} if kind == "video" else {})})
+    return RenderedPrompt(text=text, references=tuple(references))
+
+
+def _unavailable_before_rendering(prompt: object) -> str | None:
+    """渲染之前就能判定的不可用原因：待生成或为空；``None`` 表示该提示词值得渲染。"""
+    if prompt is None:
+        return UNAVAILABLE_PENDING
+    if (isinstance(prompt, str) and not prompt.strip()) or prompt == {}:
+        return UNAVAILABLE_MISSING
+    return None
+
+
+def _render(prompt: object, render: Any) -> RenderedPrompt:
+    is_text_form = isinstance(prompt, str)
+    if (reason := _unavailable_before_rendering(prompt)) is not None:
+        return RenderedPrompt(unavailable=reason, is_text_form=is_text_form)
+    try:
+        return RenderedPrompt(text=render(prompt), is_text_form=is_text_form)
+    except (ValueError, TypeError, KeyError):
+        return RenderedPrompt(unavailable=UNAVAILABLE_INVALID, is_text_form=is_text_form)
+
+
+async def reference_image_limit(
+    project_name: str,
+    project: dict[str, Any],
+    project_path: Path,
+    *,
+    has_references: bool = True,
+) -> tuple[int | None, str]:
+    """image lane 的参考图裁剪上限与模型名，与执行期同一裁剪口径；``None`` 表示不裁剪。
+
+    解析 image lane 会构造 backend（需凭证）。预览是只读视图，凭证缺失 / 供应商未配置时
+    不该连提示词都看不到：解析失败按不裁剪处理并记一条 info——这种项目本来也跑不了生成，
+    预览与执行的逐字一致仍然成立。预览按项目当前配置解析、没有任务 payload：若入队的
+    payload 钉了别的供应商且其上限不同，编号会与那次执行不一致，这是预览不知 payload 的
+    既有限制。
+    """
+    try:
+        ctx = await resolve_generation_context(
+            project_name,
+            None,
+            project=project,
+            project_path=project_path,
+            image=ImageLaneRequest(generation_type="i2i" if has_references else "t2i"),
+        )
+    except Exception as exc:
+        logger.info("预览无法解析 image lane，参考图不按后端上限裁剪：%s", exc)
+        return None, ""
+    return ctx.image.max_reference_images, ctx.image.backend_model
+
+
+async def _render_reference_unit_video(
+    project: dict[str, Any],
+    script: dict[str, Any],
+    unit: dict[str, Any],
+    project_path: Path,
+    script_file: str,
+) -> RenderedPrompt:
+    """参考视频单元的视频侧：与 Web 预览同一份请求投影与 renderer。"""
+    try:
+        projection = await project_reference_unit_request(
+            project=project,
+            script=script,
+            unit=unit,
+            project_path=project_path,
+        )
+        rendered = await asyncio.to_thread(
+            reference_prompt_preview_facts,
+            project=project,
+            unit=unit,
+            script=script,
+            episode=resolve_artifact_episode(project=project, script=script, script_filename=script_file),
+            project_path=project_path,
+            projection=projection,
+        )
+    except (ValueError, TypeError, KeyError):
+        logger.warning("参考视频单元 %s 的字段不合规，无法渲染预览", unit.get("unit_id"), exc_info=True)
+        return RenderedPrompt(unavailable=UNAVAILABLE_INVALID, is_text_form=True)
+    return RenderedPrompt(
+        text=rendered["text"],
+        unavailable=rendered["unavailable"],
+        unavailable_params=rendered["unavailable_params"],
+        is_text_form=rendered["is_text_form"],
+        warnings=tuple(rendered["warnings"]),
+        references=tuple(rendered["references"]),
+    )
+
+
+async def preview_item_prompts(
+    project_name: str,
+    script_file: str,
+    item_id: str,
+    *,
+    projects: ProjectManager | None = None,
+) -> ItemPromptPreview:
+    """渲染分镜条目或参考视频单元的最终提示词文本。
+
+    ``projects`` 供工具运行时把已解析的 ProjectManager 注入进来（REST 路由用进程默认实例）。
+    """
+
+    def _load() -> tuple[dict[str, Any], Path, dict[str, Any], dict[str, Any], str, bool]:
+        manager = projects if projects is not None else get_project_manager()
+        project = manager.load_project(project_name)
+        project_path = manager.get_project_path(project_name)
+        script = manager.load_script(project_name, script_file)
+        # 与执行期同一分派：生成模式定路径。只看骨架时，残留分镜数组会遮住合法单元，
+        # 分镜项目里的游离单元又会预览出一份永远不会发出的文本。
+        is_reference_unit = is_reference_video_project(project) and "video_units" in script
+        items, id_field, *_ = (
+            resolve_items(script, kind="video_units") if is_reference_unit else get_storyboard_items(script)
+        )
+        resolved = find_storyboard_item(items, id_field, item_id)
+        if resolved is None:
+            raise ScriptItemNotFound(item_id)
+        content_mode = resolve_content_mode(script, project)
+        return project, project_path, script, resolved[0], content_mode, is_reference_unit
+
+    project, project_path, script, item, content_mode, is_reference_unit = await run_sync_transaction(_load)
+    if is_reference_unit:
+        return ItemPromptPreview(
+            item_id=item_id,
+            content_mode=content_mode,
+            storyboard_image=RenderedPrompt(unavailable="storyboard_script_required"),
+            video=await _render_reference_unit_video(project, script, item, project_path, script_file),
+        )
+    # 声音绑定按项目当前的视频能力档解析（非 drama 或无声一律 None），与执行期同一判据。
+    video_facts = await storyboard_video_request_facts(project)
+
+    def _assemble() -> StoryboardImageInput:
+        # 与执行期读同一份生成输入（含上一镜的参考图的可用性判定），「图N」编号才能逐字一致；
+        # 剧本未登记或内容已变更时以 ValueError 拒绝，按提示词不可渲染处理，产物清单本身的
+        # 故障（ArtifactManifestError）沿用 fail loud。
+        script_input = resolve_usable_episode_script_input(
+            project_path=project_path,
+            project=project,
+            script=script,
+            script_filename=script_file,
+        )
+        return storyboard_image_input(
+            project,
+            script,
+            episode=script_input.episode,
+            resource_id=item_id,
+            observation=project_input_observation(project_path),
+        )
+
+    image: RenderedPrompt | None = None
+    generation_input: StoryboardImageInput | None = None
+    image_prompt = item.get("image_prompt")
+    is_text_form = isinstance(image_prompt, str)
+    # 空提示词不可渲染；待生成提示词交给生成输入，与引用缺口一次报全。
+    if image_prompt is not None and (reason := _unavailable_before_rendering(image_prompt)) is not None:
+        image = RenderedPrompt(unavailable=reason, is_text_form=is_text_form)
+    else:
+        try:
+            assembled = await asyncio.to_thread(_assemble)
+        except (ValueError, TypeError, KeyError):
+            image = RenderedPrompt(unavailable=UNAVAILABLE_INVALID, is_text_form=is_text_form)
+        else:
+            if (refused := assembled.refusal) is not None:
+                refusal = input_refusal_error(refused)
+                image = RenderedPrompt(
+                    unavailable=refusal.key,
+                    unavailable_params=dict(refusal.params),
+                    is_text_form=is_text_form,
+                )
+            else:
+                generation_input = assembled
+    limit = (
+        await reference_image_limit(project_name, project, project_path, has_references=bool(generation_input.references))
+        if generation_input is not None
+        else (None, "")
+    )
+
+    def _render_both() -> ItemPromptPreview:
+        storyboard_image = image
+        if storyboard_image is None:
+            assert generation_input is not None
+            max_reference_images, model = limit
+            try:
+                rendered = generation_input.render(max_reference_images=max_reference_images, model=model)
+            except (ValueError, TypeError, KeyError):
+                storyboard_image = RenderedPrompt(unavailable=UNAVAILABLE_INVALID, is_text_form=is_text_form)
+            else:
+                sent_references = generation_input.references[:rendered.sent_count]
+                storyboard_image = RenderedPrompt(
+                    text=rendered.prompt,
+                    editable_text=render_storyboard_image_prompt(
+                        generation_input.semantics.image_prompt,
+                        style=generation_input.semantics.style,
+                        style_description=generation_input.semantics.style_description,
+                        references=[reference.visual for reference in sent_references],
+                        preserve_mentions=True,
+                    ),
+                    is_text_form=is_text_form,
+                    warnings=rendered.warnings,
+                    references=tuple(
+                        {"kind": "image", "name": reference.visual.logical_id, "path": reference.artifact_path}
+                        for reference in sent_references
+                    ),
+                )
+        storyboard_images: dict[str, str] = {}
+        prompt = item.get("video_prompt")
+        if (reason := _unavailable_before_rendering(prompt)) is not None:
+            video = RenderedPrompt(unavailable=reason, is_text_form=isinstance(prompt, str))
+        elif isinstance(video_facts, VideoRequestFactsFailure):
+            video = RenderedPrompt(unavailable=video_facts.code, unavailable_params=video_facts.parameters(),
+                                   is_text_form=isinstance(prompt, str))
+        else:
+            def _project_video():
+                items, id_field, _, _, _ = get_storyboard_items(script)
+                return project_storyboard_video_input(
+                    project, item, project_path, project_input_observation(project_path), video_facts,
+                    content_mode=content_mode, skeleton_kind=resolve_script_kind(script),
+                    episode=resolve_artifact_episode(project=project, script=script, script_filename=script_file),
+                    items=items, id_field=id_field,
+                )
+
+            try:
+                request = _project_video()
+            except BadRequestError as exc:
+                video = RenderedPrompt(unavailable=exc.key, unavailable_params=dict(exc.params),
+                                       is_text_form=isinstance(prompt, str))
+            except (ValueError, TypeError):
+                video = RenderedPrompt(unavailable=UNAVAILABLE_INVALID, is_text_form=isinstance(prompt, str))
+            else:
+                storyboard_images = request.storyboard_images
+                video = RenderedPrompt(
+                    text=request.preview_prompt,
+                    is_text_form=isinstance(prompt, str),
+                    editable_text=render_storyboard_video_prompt(
+                        prompt, item, content_mode=content_mode, voice_characters=None, preserve_mentions=True,
+                    ),
+                    references=request.preview,
+                    narrator_reference_missing=request.narrator_reference_missing,
+                    warnings=tuple({"key": error.key, "params": dict(error.params)} for error in request.blockers),
+                )
+        return ItemPromptPreview(
+            item_id=item_id,
+            content_mode=content_mode,
+            storyboard_image=storyboard_image,
+            video=video,
+            storyboard_images=storyboard_images,
+            submitted_video=_submitted_storyboard_video(project_path, script_file, item_id, item),
+        )
+
+    return await asyncio.to_thread(_render_both)
+
+
+__all__ = [
+    "UNAVAILABLE_INVALID",
+    "UNAVAILABLE_MISSING",
+    "UNAVAILABLE_PENDING",
+    "ItemPromptPreview",
+    "RenderedPrompt",
+    "ScriptItemNotFound",
+    "preview_item_prompts",
+]

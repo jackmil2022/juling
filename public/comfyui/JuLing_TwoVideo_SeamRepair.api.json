@@ -1,0 +1,494 @@
+{
+  "1": {
+    "class_type": "LoadVideo",
+    "inputs": {
+      "file": "clip_1.mp4"
+    },
+    "_meta": {
+      "title": "① 前一段 MP4"
+    }
+  },
+  "2": {
+    "class_type": "LoadVideo",
+    "inputs": {
+      "file": "clip_2.mp4"
+    },
+    "_meta": {
+      "title": "② 后一段 MP4"
+    }
+  },
+  "3": {
+    "class_type": "GetVideoComponents",
+    "inputs": {
+      "video": [
+        "1",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "拆分画面、音轨和帧率"
+    }
+  },
+  "4": {
+    "class_type": "GetVideoComponents",
+    "inputs": {
+      "video": [
+        "2",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "拆分画面、音轨和帧率"
+    }
+  },
+  "5": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": [
+        "3",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "读取视频帧数"
+    }
+  },
+  "6": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": [
+        "4",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "读取视频帧数"
+    }
+  },
+  "7": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "a - 4",
+      "values.a": [
+        "34",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "前段保留帧数"
+    }
+  },
+  "8": {
+    "class_type": "ImageFromBatch",
+    "inputs": {
+      "batch_index": 0,
+      "length": [
+        "7",
+        1
+      ],
+      "image": [
+        "32",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "前段：保留至接缝前"
+    }
+  },
+  "9": {
+    "class_type": "ImageFromBatch",
+    "inputs": {
+      "batch_index": -5,
+      "length": 1,
+      "image": [
+        "32",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "前段：左锚点（倒数第 5 帧）"
+    }
+  },
+  "10": {
+    "class_type": "ImageFromBatch",
+    "inputs": {
+      "batch_index": 4,
+      "length": 1,
+      "image": [
+        "33",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "后段：右锚点（第 5 帧）"
+    }
+  },
+  "11": {
+    "class_type": "ImageFromBatch",
+    "inputs": {
+      "batch_index": 4,
+      "length": 4096,
+      "image": [
+        "33",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "后段：从右锚点保留至结尾"
+    }
+  },
+  "12": {
+    "class_type": "ImageBatch",
+    "inputs": {
+      "image1": [
+        "9",
+        0
+      ],
+      "image2": [
+        "10",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "合并前后锚点"
+    }
+  },
+  "13": {
+    "class_type": "FrameInterpolationModelLoader",
+    "inputs": {
+      "model_name": "film_net_fp16.safetensors"
+    },
+    "_meta": {
+      "title": "FILM 补帧模型"
+    }
+  },
+  "14": {
+    "class_type": "FrameInterpolate",
+    "inputs": {
+      "multiplier": 9,
+      "interp_model": [
+        "13",
+        0
+      ],
+      "images": [
+        "12",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "③ 双端补帧：2 帧生成 10 帧"
+    }
+  },
+  "15": {
+    "class_type": "ImageFromBatch",
+    "inputs": {
+      "batch_index": 1,
+      "length": 8,
+      "image": [
+        "14",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "只取中间 8 帧（去重两个锚点）"
+    }
+  },
+  "16": {
+    "class_type": "ImageBatch",
+    "inputs": {
+      "image1": [
+        "8",
+        0
+      ],
+      "image2": [
+        "15",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "前段 + 修复帧"
+    }
+  },
+  "17": {
+    "class_type": "ImageBatch",
+    "inputs": {
+      "image1": [
+        "16",
+        0
+      ],
+      "image2": [
+        "11",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "画面拼接完成"
+    }
+  },
+  "18": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "a / b",
+      "values.a": [
+        "34",
+        2
+      ],
+      "values.b": [
+        "3",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "前段画面时长（秒）"
+    }
+  },
+  "19": {
+    "class_type": "EmptyAudio",
+    "inputs": {
+      "duration": [
+        "18",
+        0
+      ],
+      "sample_rate": 48000,
+      "channels": 2
+    },
+    "_meta": {
+      "title": "前段等长静音底轨"
+    }
+  },
+  "20": {
+    "class_type": "AudioMerge",
+    "inputs": {
+      "merge_method": "add",
+      "audio1": [
+        "19",
+        0
+      ],
+      "audio2": [
+        "3",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "前段原音轨：截齐或补静音"
+    }
+  },
+  "21": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "a / b",
+      "values.a": [
+        "35",
+        2
+      ],
+      "values.b": [
+        "4",
+        2
+      ]
+    },
+    "_meta": {
+      "title": "后段画面时长（秒）"
+    }
+  },
+  "22": {
+    "class_type": "EmptyAudio",
+    "inputs": {
+      "duration": [
+        "21",
+        0
+      ],
+      "sample_rate": 48000,
+      "channels": 2
+    },
+    "_meta": {
+      "title": "后段等长静音底轨"
+    }
+  },
+  "23": {
+    "class_type": "AudioMerge",
+    "inputs": {
+      "merge_method": "add",
+      "audio1": [
+        "22",
+        0
+      ],
+      "audio2": [
+        "4",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "后段原音轨：截齐或补静音"
+    }
+  },
+  "24": {
+    "class_type": "AudioConcat",
+    "inputs": {
+      "direction": "after",
+      "audio1": [
+        "20",
+        0
+      ],
+      "audio2": [
+        "23",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "按顺序拼接原音轨"
+    }
+  },
+  "25": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "fps": [
+        "3",
+        2
+      ],
+      "images": [
+        "17",
+        0
+      ],
+      "audio": [
+        "24",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "④ 按原帧率合成"
+    }
+  },
+  "26": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "filename_prefix": "video/JuLing_SeamRepaired",
+      "format": "auto",
+      "format.codec": "auto",
+      "video": [
+        "25",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "⑤ 保存修复后的完整视频"
+    }
+  },
+  "28": {
+    "class_type": "PrimitiveFloat",
+    "inputs": {
+      "value": 2
+    },
+    "_meta": {
+      "title": "前段目标时长（秒）"
+    }
+  },
+  "29": {
+    "class_type": "PrimitiveFloat",
+    "inputs": {
+      "value": 2
+    },
+    "_meta": {
+      "title": "后段目标时长（秒）"
+    }
+  },
+  "30": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "min(a, round(b * c))",
+      "values.a": [
+        "5",
+        2
+      ],
+      "values.b": [
+        "3",
+        2
+      ],
+      "values.c": [
+        "28",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "前段目标帧数"
+    }
+  },
+  "31": {
+    "class_type": "ComfyMathExpression",
+    "inputs": {
+      "expression": "min(a, round(b * c))",
+      "values.a": [
+        "6",
+        2
+      ],
+      "values.b": [
+        "4",
+        2
+      ],
+      "values.c": [
+        "29",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "后段目标帧数"
+    }
+  },
+  "32": {
+    "class_type": "ImageFromBatch",
+    "inputs": {
+      "image": [
+        "3",
+        0
+      ],
+      "batch_index": 0,
+      "length": [
+        "30",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "前段：按目标时长裁帧"
+    }
+  },
+  "33": {
+    "class_type": "ImageFromBatch",
+    "inputs": {
+      "image": [
+        "4",
+        0
+      ],
+      "batch_index": 0,
+      "length": [
+        "31",
+        1
+      ]
+    },
+    "_meta": {
+      "title": "后段：按目标时长裁帧"
+    }
+  },
+  "34": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": [
+        "32",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "读取前段裁切帧数"
+    }
+  },
+  "35": {
+    "class_type": "GetImageSize",
+    "inputs": {
+      "image": [
+        "33",
+        0
+      ]
+    },
+    "_meta": {
+      "title": "读取后段裁切帧数"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "media_type": "audio",
+  "semantic_keys": {
+    "prompt": { "input_names": ["text"], "class_types": ["FB_Qwen3TTSCustomVoice"] }
+  },
+  "output_candidates": [{ "class_type": "SaveAudio" }],
+  "steps": {},
+  "constant_nodes": {}
+}

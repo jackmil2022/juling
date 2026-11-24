@@ -1,0 +1,24 @@
+"""Encoded identifiers retained only for reading data from earlier releases."""
+
+import re
+
+LEGACY_BRAND = bytes.fromhex("4172635265656c").decode("ascii")
+LEGACY_BRAND_LOWER = LEGACY_BRAND.lower()
+LEGACY_BRAND_UPPER = LEGACY_BRAND.upper()
+
+LEGACY_INTERNAL_DIRNAME = f".{LEGACY_BRAND_LOWER}"
+LEGACY_PROFILE_MANIFEST_NAME = f".{LEGACY_BRAND_LOWER}_profile_manifest.json"
+LEGACY_ARTIFACTS_MANIFEST_NAME = f".{LEGACY_BRAND_LOWER}_artifacts.json"
+LEGACY_SQLITE_DB_NAME = f".{LEGACY_BRAND_LOWER}.db"
+LEGACY_PROJECT_SQLITE_DB_NAME = f"{LEGACY_BRAND_LOWER}.db"
+LEGACY_PROFILE_ID = f"{LEGACY_BRAND_LOWER}/builtin"
+LEGACY_AGENT_AUTHOR_KIND = f"{LEGACY_BRAND_LOWER}_agent"
+LEGACY_ASSET_IDENTITY_DOMAIN = f"{LEGACY_BRAND_LOWER}/asset-library-account/v1"
+LEGACY_ARCHIVE_MANIFEST_NAME = f"{LEGACY_BRAND_LOWER}-export.json"
+LEGACY_JIANYING_PLACEHOLDER = f"{{{{{LEGACY_BRAND_UPPER}_JIANYING_ASSETS}}}}"
+LEGACY_JIANYING_INDEX_NAME = f"{LEGACY_BRAND_LOWER}_jianying_draft.json"
+LEGACY_OFFICIAL_SERVICE_HOST = f"{LEGACY_BRAND_LOWER[:3]}-{LEGACY_BRAND_LOWER[3:]}.com"
+
+
+def replace_legacy_brand(text: str) -> str:
+    return re.sub(re.escape(LEGACY_BRAND), "juling", text, flags=re.IGNORECASE)

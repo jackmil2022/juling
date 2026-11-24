@@ -1,0 +1,49 @@
+{
+  "kind": "comfyui",
+  "schema_version": "1.0.0",
+  "meta": {
+    "name": "Qwen3 TTS",
+    "author": "剧灵",
+    "version": "1.0.0"
+  },
+  "media_type": "audio",
+  "workflow": {
+    "1": {
+      "class_type": "FB_Qwen3TTSCustomVoice",
+      "inputs": {
+        "text": "",
+        "speaker": "Vivian",
+        "model_choice": "0.6B",
+        "device": "auto",
+        "precision": "bf16",
+        "language": "Auto",
+        "unload_model_after_generate": true
+      }
+    },
+    "2": {
+      "class_type": "SaveAudio",
+      "inputs": {
+        "audio": [
+          "1",
+          0
+        ],
+        "filename_prefix": "audio/剧灵"
+      }
+    }
+  },
+  "bindings": {
+    "prompt": [
+      {
+        "node": "1",
+        "class_type": "FB_Qwen3TTSCustomVoice",
+        "input": "text"
+      }
+    ],
+    "output": [
+      {
+        "node": "2",
+        "class_type": "SaveAudio"
+      }
+    ]
+  }
+}

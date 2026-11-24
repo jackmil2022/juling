@@ -1,0 +1,68 @@
+[project]
+name = "juling"
+version = "0.37.0"
+description = "AI video generation workspace"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "claude-agent-sdk>=0.2.177",
+    "fastapi>=0.138.2",
+    # fastapi 未 re-export 的 ASGI 类型与 MutableHeaders / FormData / UploadFile 直接取自 starlette。
+    "starlette>=1.8.0",
+    "google-genai>=2.21.0",
+    "Pillow>=12.1.1",
+    "pydantic>=2.12.5",
+    # pydantic 未 re-export 的 ErrorDetails / PydanticCustomError 直接取自 pydantic-core。
+    "pydantic-core>=2.46.4",
+    "PyYAML>=6.0.3",
+    "python-dotenv>=1.2.1",
+    "python-multipart>=0.0.22",
+    "uvicorn>=0.41.0",
+    "pyjwt>=2.12.1",
+    "sqlalchemy[asyncio]>=2.0.48",
+    "aiosqlite>=0.22.1",
+    "asyncpg>=0.31.0",
+    "alembic>=1.18.4",
+    "pwdlib[argon2]>=0.3.0",
+    "volcengine-python-sdk[ark]>=5.0.17",
+    "openai>=2.30.0",
+    "xai-sdk>=1.20.0",
+    "pyjianyingdraft>=0.3.0",
+    "instructor>=1.16.0",
+    "charset-normalizer>=3.4.6",
+    "docx2txt>=0.9",
+    "mammoth>=1.12.0",
+    "beautifulsoup4>=4.14.3",
+    "lxml>=6.1.0",
+    "packaging>=24.0",
+    "portalocker>=2.10.1",
+    "pdf-oxide>=0.3.46",
+    "socksio>=1.0.0",
+    "mcp>=1.29.0,<2",
+    "jsonschema>=4.26.0",
+    "httpx>=0.28.1",
+    "grpcio>=1.83.0",
+    "numpy>=2.5.2",
+    "jinja2>=3.1.6",
+    "juling-market-core",
+    "juling-catalog-core",
+    # 随包分发的 ffmpeg，经 backend/lib/infra/ffmpeg.py 的查找器取用；不依赖系统 ffmpeg / ffprobe。
+    "imageio-ffmpeg>=0.6.0",
+    "anthropic>=0.125.0,<1",
+    "tos>=2.9.3",
+    "litellm==1.110.2",
+]
+
+[tool.uv.workspace]
+members = ["backend/packages/juling-market-core", "backend/packages/juling-catalog-core"]
+
+[tool.uv.sources]
+juling-market-core = { workspace = true }
+juling-catalog-core = { workspace = true }
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["backend/lib", "backend/server"]

@@ -1,0 +1,560 @@
+"""Configuration-free current bases for selected typed media artifacts.
+
+The selected version freezes execution-only dependency shape (duration tiers,
+reference clamping, and voice-style speakers).  Current currency reprojects only
+durable project/script inputs through that frozen shape; it never consults
+whichever provider configuration happens to be active later.  From schema 16 the
+project's TTS snapshot is such a durable input; earlier schemas have no snapshot
+and reproject narration audio through the version's execution-frozen settings.
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import Any
+
+from lib.artifacts.artifact_manifest import (
+    ArtifactBasis,
+    ArtifactBasisDescriptor,
+    ArtifactKey,
+    ArtifactManifestEntry,
+    ProjectArtifactManifestAdapter,
+    compose_video_artifact_basis,
+)
+from lib.artifacts.artifact_version_provenance import parse_typed_audio_settings, parse_typed_media_version_target
+from lib.artifacts.generation_input import (
+    PROMPT_PENDING_CODE, project_input_observation, resolve_storyboard_shot_images, select_storyboard_video_images,
+    storyboard_shots, storyboard_video_references,
+)
+from lib.artifacts.input_gap import InputGap, add_absent_inputs, project_basis_records_gaps
+from lib.artifacts.version_manager import VersionManager
+from lib.artifacts.video_artifact_facts import VideoArtifactCurrencyFacts
+from lib.artifacts.video_visual_provenance import resolve_video_aspect_ratio
+from lib.artifacts.visual_artifact_provenance import (
+    build_reference_video_artifact_visual_basis,
+    build_storyboard_video_artifact_visual_basis,
+    project_basis_style_description,
+)
+from lib.material.work_files import material_file_present
+from lib.project.asset_types import NARRATOR_CHARACTER, asset_name_comparison_key
+from lib.project.project_manager import ProjectManager, resolve_episode_script_binding
+from lib.project.project_schema import parse_project_schema_version
+from lib.project.resource_paths import resource_relative_path
+from lib.references.reference_admission import SHEET_MISSING_CODE
+from lib.script.reference_video.duration_slots import resolve_duration_slot, storyboard_planned_seconds
+from lib.script.reference_video.prompt_render import resolve_reference_audio_paths
+from lib.script.reference_video.request_projection import (
+    FilesystemReferenceAssets,
+    clamp_reference_assets,
+    hydrate_reference_assets,
+    resolve_reference_assets,
+    unit_reference_declarations,
+)
+from lib.script.script_editor import resolve_items
+from lib.script.storyboard_sequence import (
+    EndFrameImageUnavailable,
+    StoryboardImageUnavailable,
+    continuous_neighbors,
+    resolve_end_frame_snapshot,
+    resolve_storyboard_video_image,
+    storyboard_needs_asset_images,
+)
+from lib.speech.character_voice import character_voice_binding
+from lib.speech.narration_config import PROJECT_TTS_SNAPSHOT_SCHEMA_VERSION, project_tts_settings
+from lib.speech.narration_delivery import build_narration_audio_basis
+from lib.speech.speech_artifact_provenance import (
+    build_blocked_video_speech_basis,
+    build_video_duration_basis,
+    build_video_speech_basis,
+    project_character_voice_evidence,
+)
+from lib.speech.speech_composition import SpeechPreparation, admit_script_unit
+
+#: 视频依据里缺席项的缺口码，沿用视频生成入口拒绝时的同一码。
+STORYBOARD_UNAVAILABLE_CODE = "generate_storyboard_first"
+END_FRAME_UNAVAILABLE_CODE = "invalid_end_frame_image_path"
+DURATION_UNSUPPORTED_CODE = "video_duration_not_supported"
+DURATION_INVALID_CODE = "video_duration_invalid"
+
+
+def build_current_audio_artifact_basis(
+    *,
+    project: Mapping[str, Any],
+    item: Mapping[str, Any],
+    skeleton_kind: str,
+    version_record: Mapping[str, Any],
+) -> ArtifactBasisDescriptor | None:
+    """Reproject current narration text through the project's current TTS settings.
+
+    A current-schema project without a complete TTS snapshot has no current basis.
+    """
+
+    try:
+        target = parse_typed_media_version_target("audio", version_record)
+        if parse_project_schema_version(project) >= PROJECT_TTS_SNAPSHOT_SCHEMA_VERSION:
+            settings = project_tts_settings(project)
+            if settings is None:
+                return None
+        else:
+            settings = parse_typed_audio_settings(version_record)
+        admission = admit_script_unit(skeleton_kind, item)
+        current = ArtifactBasisDescriptor.from_basis(build_narration_audio_basis(admission.preparation, settings))
+    except (TypeError, ValueError):
+        return None
+    if target.basis.kind != current.kind:
+        return None
+    return current
+
+
+@dataclass(frozen=True, slots=True)
+class VideoExecutionShape:
+    """The execution-frozen dependency shape a video's current basis is reprojected through."""
+
+    voice_style_speakers: tuple[str, ...]
+    reference_audio_speakers: tuple[str, ...]
+    reference_image_limit: int | None
+    duration_tiers: tuple[int, ...]
+    storyboard_reference_images: bool = False
+    storyboard_fusion: bool = False
+    selected_storyboard_references: bool = False
+
+    @classmethod
+    def from_version_record(
+        cls,
+        artifact_currency: VideoArtifactCurrencyFacts,
+        version_metadata: Mapping[str, Any],
+    ) -> VideoExecutionShape:
+        audio_speakers = _execution_reference_audio_speakers(version_metadata.get("execution_provider_media"))
+        if audio_speakers is None:
+            raise ValueError("version record does not list its provider media")
+        return cls(
+            voice_style_speakers=artifact_currency.voice_style_speakers,
+            reference_audio_speakers=audio_speakers,
+            reference_image_limit=artifact_currency.reference_image_limit,
+            duration_tiers=artifact_currency.duration_tiers,
+            storyboard_reference_images=artifact_currency.visual_basis.kind_version >= 2,
+            storyboard_fusion=artifact_currency.visual_basis.kind_version == 3,
+            selected_storyboard_references=artifact_currency.visual_basis.kind_version == 4,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class VideoBasisComponents:
+    visual: ArtifactBasis
+    speech: ArtifactBasis
+    duration: ArtifactBasis
+
+    def compose(self) -> ArtifactBasis:
+        return compose_video_artifact_basis(visual=self.visual, speech=self.speech, duration=self.duration)
+
+
+def project_video_basis_components(
+    *,
+    project_path: Path,
+    project: dict[str, Any],
+    item: dict[str, Any],
+    skeleton_kind: str,
+    resource_type: str,
+    resource_id: str,
+    shape: VideoExecutionShape,
+    record_gaps: bool = False,
+    episode: int = 0,
+    previous_storyboard: Mapping[str, Any] | None = None,
+) -> VideoBasisComponents:
+    """Project the current script item through ``shape`` into the three video basis components.
+
+    The registration path (backfill) and the comparison path (currency) both
+    build their basis here, so the two can never disagree on what a video
+    depends on. Raises ``ValueError`` naming what could not be projected.
+
+    ``record_gaps`` 打开时，生成缺口不阻止投影（``docs/adr/0098``）：发声准入不通过的单位投影出
+    带发声归属的发声依据，待生成的视频提示词、不可用的参考图或尾帧、缺图的参考资产与落不进档位
+    的时长都在对应组件里记为缺席。输入完整时依据与关闭时逐字节相同。
+    """
+
+    admission = admit_script_unit(skeleton_kind, item)
+    if not admission.allowed:
+        if not record_gaps:
+            raise ValueError("script unit is not admitted for speech composition")
+        speech = build_blocked_video_speech_basis(admission.preparation)
+    else:
+        speech = _admitted_speech_basis(project_path, project, admission.preparation, shape, storyboard=resource_type == "videos")
+
+    if resource_type == "videos":
+        visual = _storyboard_visual_basis(
+            project_path=project_path,
+            project=project,
+            item=item,
+            resource_id=resource_id,
+            record_gaps=record_gaps,
+            reference_images=shape.storyboard_reference_images,
+            fusion=shape.storyboard_fusion,
+            episode=episode,
+            selected_storyboard_references=shape.selected_storyboard_references,
+            previous_storyboard=previous_storyboard,
+        )
+    elif resource_type == "reference_videos":
+        declared = unit_reference_declarations(project, item)
+        resolved = resolve_reference_assets(project, project_path, item)
+        hydration = hydrate_reference_assets(declared, resolved, FilesystemReferenceAssets(project_path))
+        if hydration.missing and not record_gaps:
+            raise ValueError("declared reference assets are missing")
+        visual = build_reference_video_artifact_visual_basis(
+            unit=item,
+            request_assets=clamp_reference_assets(hydration.available, shape.reference_image_limit),
+            style=project.get("style") if isinstance(project.get("style"), str) else None,
+            style_description=project_basis_style_description(project),
+            aspect_ratio=resolve_video_aspect_ratio(project),
+            absent=[InputGap(SHEET_MISSING_CODE, reference.type, reference.name) for reference in hydration.missing],
+        )
+    else:
+        raise ValueError(f"resource type does not carry video artifact metadata: {resource_type}")
+
+    duration = _current_duration_tier_basis(project=project, item=item, duration_tiers=shape.duration_tiers)
+    if duration is None:
+        if not record_gaps:
+            raise ValueError("planned duration cannot be placed on the paid duration tiers")
+        duration = _unplaceable_duration_basis(project=project, item=item)
+    return VideoBasisComponents(visual=visual, speech=speech, duration=duration)
+
+
+def _admitted_speech_basis(
+    project_path: Path,
+    project: dict[str, Any],
+    preparation: SpeechPreparation,
+    shape: VideoExecutionShape,
+    *, storyboard: bool = False,
+) -> ArtifactBasis:
+
+    # 角色声音绑定方式属于交付内容（ADR 0062 的分界线：这一位改变用户拿到的成品）：项目切回提示词
+    # 软约束后，已挂过参考音频的成片不再对得上当前设置，投影里因此不再重放那批音频，条目随之判
+    # stale。反向切换不触发——那批成片本就没挂过音频，参考音频档下渲染出的画面与声明与它们一致。
+    replay_audio = storyboard or character_voice_binding(project) == "reference_audio"
+    available_audio = resolve_reference_audio_paths(project, project_path) if shape.reference_audio_speakers else {}
+    selected_audio = {
+        speaker: available_audio[speaker] for speaker in shape.reference_audio_speakers
+        if speaker in available_audio and (replay_audio or speaker == NARRATOR_CHARACTER)
+    }
+    return build_video_speech_basis(
+        preparation,
+        voices=project_character_voice_evidence(
+            preparation,
+            characters=project.get("characters"),
+            voice_style_speakers=shape.voice_style_speakers,
+            reference_audio_paths=selected_audio,
+        ),
+    )
+
+
+def _storyboard_visual_basis(
+    *,
+    project_path: Path,
+    project: Mapping[str, Any],
+    item: dict[str, Any],
+    resource_id: str,
+    record_gaps: bool,
+    reference_images: bool,
+    fusion: bool,
+    episode: int,
+    selected_storyboard_references: bool,
+    previous_storyboard: Mapping[str, Any] | None,
+) -> ArtifactBasis:
+    """分镜视频的画面依据。``record_gaps`` 打开时，待生成的提示词与不可用的参考图、尾帧记为缺席。"""
+
+    prompt = item.get("video_prompt")
+    gaps: list[InputGap] = []
+    if prompt is None and record_gaps:
+        gaps.append(InputGap(PROMPT_PENDING_CODE, name=resource_id))
+    if reference_images:
+        observation = project_input_observation(project_path)
+        references, missing = storyboard_video_references(project, item, observation, require_scene=not selected_storyboard_references)
+        if selected_storyboard_references:
+            shot_images = ()
+            if prompt is not None:
+                shots = storyboard_shots(project, item, references, episode=episode, resource_id=resource_id)
+                shot_images = resolve_storyboard_shot_images(
+                    shots, item, observation, episode=episode, resource_id=resource_id, assets_complete=not missing,
+                )
+            selected = select_storyboard_video_images(
+                item, use_asset_images=storyboard_needs_asset_images(previous_storyboard, item),
+                assets=references, shot_images=shot_images,
+            )
+            references = tuple(ref for ref, _ in selected)
+            missing = ()
+        if fusion and prompt is not None:
+            shots = storyboard_shots(project, item, references, episode=episode, resource_id=resource_id)
+            shot_images = resolve_storyboard_shot_images(
+                shots, item, observation, episode=episode, resource_id=resource_id, assets_complete=not missing,
+            )
+            references = tuple(ref for _, ref in shot_images if ref is not None)
+            if len(shots) == 1 and references:
+                missing = ()
+            elif not missing:
+                missing = tuple(InputGap("storyboard_video_fusion_required", "image", shot.label)
+                                for shot, ref in shot_images if ref is None)
+        if not fusion:
+            missing = tuple(gap for gap in missing if gap.code != "reference_asset_missing")
+        if missing and not record_gaps:
+            raise ValueError("storyboard video reference images are unavailable")
+        return build_storyboard_video_artifact_visual_basis(
+            resource_id=resource_id, visual_prompt=prompt, storyboard_image=None, end_frame_image=None,
+            aspect_ratio=resolve_video_aspect_ratio(project), absent=(*gaps, *missing),
+            references=[ref.visual for ref in references],
+            selected_storyboard_references=selected_storyboard_references,
+        )
+    # 两帧分开解析：参考图缺失时尾帧照样是这条视频的输入，只有真读不到的那一帧记为缺席。
+    storyboard = _video_frame_input(
+        resolve_storyboard_video_image,
+        StoryboardImageUnavailable,
+        STORYBOARD_UNAVAILABLE_CODE,
+        project_path=project_path,
+        resource_id=resource_id,
+        item=item,
+        gaps=gaps if record_gaps else None,
+    )
+    end_frame = _video_frame_input(
+        resolve_end_frame_snapshot,
+        EndFrameImageUnavailable,
+        END_FRAME_UNAVAILABLE_CODE,
+        project_path=project_path,
+        resource_id=resource_id,
+        item=item,
+        gaps=gaps if record_gaps else None,
+    )
+    return build_storyboard_video_artifact_visual_basis(
+        resource_id=resource_id,
+        visual_prompt=prompt,
+        storyboard_image=storyboard,
+        end_frame_image=end_frame,
+        aspect_ratio=resolve_video_aspect_ratio(project),
+        absent=gaps,
+    )
+
+
+def _video_frame_input(
+    resolve: Callable[..., Path | None],
+    unavailable: type[ValueError],
+    gap_code: str,
+    *,
+    project_path: Path,
+    resource_id: str,
+    item: dict[str, Any],
+    gaps: list[InputGap] | None,
+) -> Path | None:
+    """解析一帧画面输入。``gaps`` 给出时，这一帧不可用（缺失或打不开）记为缺席并返回 ``None``；其余失败照常拒绝。"""
+
+    try:
+        frame = resolve(project_path=project_path, resource_id=resource_id, item=item)
+    except (OSError, TypeError, ValueError) as exc:
+        if gaps is None or not isinstance(exc, unavailable):
+            raise ValueError(f"storyboard inputs are unavailable: {exc}") from exc
+        gaps.append(InputGap(gap_code, name=resource_id))
+        return None
+    if frame is not None and gaps is not None and not _can_open(frame):
+        gaps.append(InputGap(gap_code, name=resource_id))
+        return None
+    return frame
+
+
+def _can_open(path: Path) -> bool:
+    try:
+        with path.open("rb"):
+            return True
+    except FileNotFoundError:
+        # 缓存已清理的远端内容版本仍可取回，按记录的摘要参与依据
+        return material_file_present(path)
+    except OSError:
+        return False
+
+
+def build_current_video_artifact_basis(
+    *,
+    project_path: Path,
+    project: dict[str, Any],
+    script: dict[str, Any],
+    resource_type: str,
+    resource_id: str,
+    version_metadata: Mapping[str, Any],
+    legacy_audio_entries: Mapping[ArtifactKey, ArtifactManifestEntry] | None = None,
+) -> ArtifactBasisDescriptor | None:
+    """Rebuild current video inputs using only frozen execution dependency shape."""
+
+    try:
+        artifact_currency = VideoArtifactCurrencyFacts.from_dict(version_metadata.get("artifact_video_currency"))
+    except (TypeError, ValueError):
+        return None
+    episode = artifact_currency.episode
+    script_file = version_metadata.get("execution_script_file")
+    if not isinstance(script_file, str) or not script_file:
+        return None
+    try:
+        current_episode = ProjectManager.resolve_episode_from_script(script, script_file)
+    except ValueError:
+        return None
+    if current_episode != episode:
+        return None
+    if resolve_episode_script_binding(project, episode, script_file) is None:
+        return None
+
+    items, id_field, kind = resolve_items(script)
+    item = next(
+        (
+            candidate
+            for candidate in items
+            if isinstance(candidate, dict) and str(candidate.get(id_field)) == resource_id
+        ),
+        None,
+    )
+    if item is None:
+        return None
+    try:
+        shape = VideoExecutionShape.from_version_record(artifact_currency, version_metadata)
+        previous = continuous_neighbors(items, id_field, resource_id, respect_scene_breaks=True)[0] if shape.selected_storyboard_references else None
+        components = project_video_basis_components(
+            project_path=project_path,
+            project=project,
+            item=item,
+            skeleton_kind=kind,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            shape=shape,
+            record_gaps=project_basis_records_gaps(project),
+            episode=episode,
+            previous_storyboard=previous,
+        )
+        if parse_project_schema_version(project) < 16:
+            legacy_duration = _legacy_narrated_duration(
+                project_path=project_path,
+                project=project,
+                item=item,
+                skeleton_kind=kind,
+                resource_id=resource_id,
+                episode=episode,
+                record=version_metadata,
+                tiers=shape.duration_tiers,
+                audio_entries=legacy_audio_entries,
+            )
+            if legacy_duration is not None:
+                components = replace(components, duration=legacy_duration)
+    except (KeyError, OSError, TypeError, ValueError):
+        return None
+    return ArtifactBasisDescriptor.from_basis(components.compose())
+
+
+def _legacy_narrated_duration(
+    *,
+    project_path: Path,
+    project: Mapping[str, Any],
+    item: Mapping[str, Any],
+    skeleton_kind: str,
+    resource_id: str,
+    episode: int,
+    record: Mapping[str, Any],
+    tiers: tuple[int, ...],
+    audio_entries: Mapping[ArtifactKey, ArtifactManifestEntry] | None,
+) -> ArtifactBasis | None:
+    """schema < 16 的迁移读法：只有已登记且时新的选中配音会抬升旧视频基准。"""
+
+    narration = record.get("execution_narration")
+    if not isinstance(narration, Mapping) or narration.get("delivery") != "use_tts":
+        return None
+    history = VersionManager(project_path).get_versions("audio", resource_id)
+    selected = next((entry for entry in history["versions"] if entry.get("is_current")), None)
+    if not isinstance(selected, Mapping):
+        return None
+    try:
+        target = parse_typed_media_version_target("audio", selected)
+        current = build_current_audio_artifact_basis(
+            project=project, item=item, skeleton_kind=skeleton_kind, version_record=selected
+        )
+    except (TypeError, ValueError):
+        return None
+    actual = selected.get("tts_actual_duration_seconds")
+    planned = item.get("duration_seconds")
+    if type(planned) is not int or planned <= 0:
+        planned = project.get("default_duration")
+    path = resource_relative_path("audio", resource_id)
+    key = ArtifactKey.episode_audio(episode, resource_id)
+    entry = (
+        audio_entries.get(key)
+        if audio_entries is not None
+        else ProjectArtifactManifestAdapter(project_path).get_entry(key)
+    )
+    if (
+        target.episode != episode
+        or resolve_episode_script_binding(project, episode, target.script_file) is None
+        or current != target.basis
+        or entry != ArtifactManifestEntry(path, target.basis.digest)
+        or not (project_path / path).is_file()
+        or isinstance(actual, bool)
+        or not isinstance(actual, int | float)
+        or actual <= 0
+        or type(planned) is not int
+        or planned <= 0
+    ):
+        return None
+    slot = resolve_duration_slot(max(planned, actual), tiers)
+    if max(planned, actual) > slot.seconds:
+        raise ValueError("legacy narration duration exceeds the paid tiers")
+    return build_video_duration_basis(slot.seconds)
+
+
+def _current_duration_tier_basis(
+    *,
+    project: Mapping[str, Any],
+    item: Mapping[str, Any],
+    duration_tiers: tuple[int, ...],
+) -> ArtifactBasis | None:
+    """Place the planned duration on the execution-frozen tiers; narration never moves the tier."""
+
+    planned = item.get("duration_seconds")
+    try:
+        planned = storyboard_planned_seconds(planned or project.get("default_duration") or 8)
+    except (ValueError, OverflowError):
+        return None
+    slot = resolve_duration_slot(planned, duration_tiers)
+    if slot.adjustment == "down" and planned > slot.seconds:
+        return None
+    return build_video_duration_basis(slot.seconds)
+
+
+def _unplaceable_duration_basis(*, project: Mapping[str, Any], item: Mapping[str, Any]) -> ArtifactBasis:
+    """编排时长落不进冻结档位时的时长依据：记下编排时长，档位记为缺席。"""
+
+    planned = item.get("duration_seconds")
+    if type(planned) is not int or planned <= 0:
+        planned = project.get("default_duration")
+    planned_seconds = planned if type(planned) is int and planned > 0 else None
+    inputs: dict[str, object] = {"request_duration_seconds": None, "planned_duration_seconds": planned_seconds}
+    code = DURATION_UNSUPPORTED_CODE if planned_seconds is not None else DURATION_INVALID_CODE
+    add_absent_inputs(inputs, [InputGap(code)])
+    return ArtifactBasis.build("artifact-speech/video-duration", kind_version=1, inputs=inputs)
+
+
+def _execution_reference_audio_speakers(value: object) -> tuple[str, ...] | None:
+    if not isinstance(value, list):
+        return None
+    speakers: list[str] = []
+    for raw in value:
+        if not isinstance(raw, Mapping):
+            return None
+        if raw.get("role") != "reference_audio":
+            continue
+        name = raw.get("logical_name")
+        if not isinstance(name, str) or not name:
+            return None
+        canonical = asset_name_comparison_key(name)
+        if canonical not in speakers:
+            speakers.append(canonical)
+    return tuple(speakers)
+
+
+__all__ = [
+    "VideoBasisComponents",
+    "VideoExecutionShape",
+    "build_current_audio_artifact_basis",
+    "build_current_video_artifact_basis",
+    "project_video_basis_components",
+]

@@ -1,0 +1,437 @@
+"""Structured task-failure encoding for the generation worker.
+
+The worker (lib layer) stores a machine-stable reason in ``Task.error_message``
+instead of locale-locked text: a ``[code]`` token optionally followed by a JSON
+object of parameters. The tasks API serialization path renders that reason via
+the request Translator on read, so the same failed task shows zh/en/vi text per
+``Accept-Language``.
+
+Anything that is not a recognised ``[code]`` form — raw provider exception text
+(``str(exc)``), or legacy rows written before this format — passes through
+verbatim, so no stored reason is ever lost or mis-parsed.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from collections.abc import Callable, Mapping
+from typing import Any
+
+from lib.custom_provider.comfyui.artifacts import expected_suffixes_text
+from lib.i18n import render_generation_input_error, render_message
+from lib.i18n.display_names import DisplayNames
+from lib.infra.error_params import (
+    is_validation_message,
+    nested_detail_slots,
+    params_budget,
+    shrink_json_strings,
+    shrinkable_copy,
+)
+
+# Backend capability rejections (``ImageCapabilityError`` / ``VideoCapabilityError`` /
+# ``ReferencePayloadFloorError``). Their ``.code`` is already an ``errors`` catalog key,
+# so the mapping below is identity — no prefix indirection. Enumerated rather than
+# derived so an unregistered code fails fast; ``tests/integration/lib/generation/test_task_failure_capability.py``
+# AST-scans the raise sites and fails CI when a new code is added without registering it.
+CAPABILITY_FAILURE_CODES: frozenset[str] = frozenset(
+    {
+        "image_aspect_ratio_not_supported",
+        "image_capability_missing_i2i",
+        "image_capability_missing_t2i",
+        "image_dashscope_4k_t2i_only",
+        "image_endpoint_mismatch_no_i2i",
+        "image_endpoint_mismatch_no_t2i",
+        "image_reference_images_exceeded",
+        "image_reference_images_unreadable",
+        "image_resolution_not_supported",
+        "image_seedream_edits_unavailable",
+        "ref_payload_floor_exceeded",
+        "video_capability_missing_t2v",
+        "video_duration_invalid",
+        "video_duration_not_supported",
+        "video_end_image_requires_start_image",
+        "video_end_image_unreadable",
+        "video_first_frame_unsupported",
+        "video_last_frame_requires_pro",
+        "video_last_frame_unsupported",
+        "video_prompt_too_long",
+        "video_reference_images_exceeded",
+        "video_reference_videos_exceeded",
+        "video_reference_images_required",
+        "video_reference_images_unreadable",
+        "video_reference_images_unsupported",
+        "video_reference_images_with_frames_unsupported",
+        "video_reference_resolution_unsupported",
+        "video_reference_audio_duration_exceeded",
+        "video_reference_audio_exceeded",
+        "video_reference_audio_format_unsupported",
+        "video_reference_audio_slots_insufficient",
+        "video_reference_audio_unreadable",
+        "video_reference_audio_unsupported",
+        "video_reference_route_audio_unsupported",
+        "video_aspect_ratio_not_supported",
+        "video_audio_switch_not_supported",
+        "video_resolution_not_supported",
+        "video_start_image_unreadable",
+    }
+)
+
+# Blocking codes emitted by ``ReferenceUnitRequestProjector``. The executor raises the
+# canonical ``ProjectionProblem`` through ``ReferenceProjectionBlockedError``; this
+# registry only authorizes those same codes for the persisted task-failure envelope.
+REFERENCE_PROJECTION_FAILURE_CODES: frozenset[str] = frozenset(
+    {
+        "reference_asset_missing",
+        "reference_asset_unregistered",
+        "reference_capability_changed",
+        "reference_capability_unavailable",
+        "needs_replan",
+        "reference_duration_confirmation_required",
+        "reference_supported_durations_incompatible",
+        "reference_supported_durations_invalid",
+        "reference_supported_durations_missing",
+        "video_audio_switch_not_supported",
+        "video_capability_missing_i2v",
+        "video_capability_missing_r2v",
+        "video_capability_reference_unavailable",
+    }
+)
+
+# 生成输入被拒（``lib.artifacts.generation_input.InputRefused``）时，执行器经服务端翻译函数抛出的
+# 首个缺口码；同一缺口在参考生视频投影里也可能出现，两份登记表重叠处按集合合并。
+GENERATION_INPUT_FAILURE_CODES: frozenset[str] = frozenset(
+    {
+        "asset_description_required",
+        "asset_original_missing",
+        "derivative_description_required",
+        "derivative_owner_sheet_missing",
+        "reference_asset_missing",
+        "reference_asset_unregistered",
+        "script_prompt_pending",
+        "storyboard_video_duration_unknown",
+        "storyboard_video_duration_invalid",
+        "storyboard_video_duration_exceeded",
+        "storyboard_video_timeline_invalid",
+        "storyboard_video_timeline_exceeded",
+        "storyboard_video_continuity_unsupported",
+        "storyboard_video_previous_required",
+        "storyboard_video_voice_required",
+        "narrator_audio_only",
+        "reference_narrator_audio_required",
+        "reference_narrator_audio_unsupported",
+        "storyboard_video_voice_target",
+        "storyboard_video_slots_exceeded",
+        "storyboard_video_fusion_required",
+    }
+)
+
+# 视频请求事实（``lib.generation.video_request_facts``）求值失败时分镜路线一族的问题码：执行器经
+# ``VideoRequestFactsError`` 阻断并按原码落库，与预检同码。参考路线一族与桶能力闸的码已在上面登记。
+VIDEO_REQUEST_FACTS_FAILURE_CODES: frozenset[str] = frozenset(
+    {
+        "video_audio_switch_not_supported",
+        "video_capability_unavailable",
+        "video_supported_durations_incompatible",
+        "video_supported_durations_invalid",
+        "video_supported_durations_missing",
+    }
+)
+
+# 生成时的供应商素材：适用关联尚未可用或入库失败（``lib.asset_library.generation_inputs``），以及供应商以
+# 输入图片未通过审核拒绝请求（``lib.backends.provider_assets``）。后者能确定被拒图片时带上图片编号与名称。
+PROVIDER_ASSET_FAILURE_CODES: frozenset[str] = frozenset(
+    {
+        "provider_asset_link_failed",
+        "provider_asset_link_processing",
+        "provider_input_asset_rejected_at",
+        "provider_input_image_rejected",
+        "provider_input_image_rejected_at",
+    }
+)
+
+# Stable failure code -> i18n errors key. The code is agent-facing and persisted
+# in the DB; the key resolves to zh/en/vi templates rendered at read time.
+FAILURE_CODE_KEYS: dict[str, str] = {
+    "text_default_model_not_set": "text_default_model_not_set",
+    "audio_default_model_not_set": "audio_default_model_not_set",
+    "image_default_model_not_set": "image_default_model_not_set",
+    "video_default_model_not_set": "video_default_model_not_set",
+    "internal_server_error": "internal_server_error",
+    **{code: code for code in CAPABILITY_FAILURE_CODES},
+    **{code: code for code in REFERENCE_PROJECTION_FAILURE_CODES},
+    **{code: code for code in GENERATION_INPUT_FAILURE_CODES},
+    **{code: code for code in VIDEO_REQUEST_FACTS_FAILURE_CODES},
+    **{code: code for code in PROVIDER_ASSET_FAILURE_CODES},
+    "provider_unsupported_media": "task_fail_provider_unsupported_media",
+    # 配音语速超出所选模型的取值范围：提交前拒绝，没有发出计费请求。
+    "narration_tts_speed_out_of_range": "narration_tts_speed_out_of_range",
+    # 方舟 Agent Plan 语音合成：上游拒绝（鉴权、套餐权限、额度或并发、音色授权）、其他业务错误码、流在合成成功结束
+    # 之前中断或内容残缺，以及重试用尽后仍连不上（请求没有送达）。参数只带有界的数字错误码，不保留上游与底层异常原文。
+    "ark_agent_plan_tts_access_denied": "ark_agent_plan_tts_access_denied",
+    "ark_agent_plan_tts_failed": "ark_agent_plan_tts_failed",
+    "ark_agent_plan_tts_incomplete": "ark_agent_plan_tts_incomplete",
+    "ark_agent_plan_tts_unreachable": "ark_agent_plan_tts_unreachable",
+    # 内置供应商的模型引用不在模型清单中（已改名或从未收录）：引用原样保留，由用户重新选择。
+    "model_not_in_provider_catalog": "model_not_in_provider_catalog",
+    # 项目模型字段只写了内置供应商、没有选定模型（迁移补全不了的旧值）：由用户重新选择。
+    "model_not_selected": "model_not_selected",
+    # 引用的模型已下线：带下线日期与官方后继，没有登记的那一句按 failure_message_key 换用省去它的文案。
+    "model_discontinued": "model_discontinued",
+    # 上游确定性 4xx 拒绝。params 里的 provider_reason 是脱敏截断后的上游原文，刻意不进
+    # 译文模板：它不该被翻译，读侧按独立字段原样展示。
+    "provider_rejected": "task_fail_provider_rejected",
+    "dispatch_provider_requeue_failed": "task_fail_dispatch_provider_requeue_failed",
+    # 项目在任务执行期间被删除：任务放弃落盘，见 lib.project.task_project_claim。
+    "project_deleted_during_task": "task_fail_project_deleted_during_task",
+    "restart_lost_image": "task_fail_restart_lost_image",
+    "restart_lost_audio": "task_fail_restart_lost_audio",
+    "restart_lost_text": "task_fail_restart_lost_text",
+    "restart_lost_render": "task_fail_restart_lost_render",
+    "restart_lost_no_job_id": "task_fail_restart_lost_no_job_id",
+    "restart_lost_resume_no_job_id": "task_fail_restart_lost_resume_no_job_id",
+    "resume_unsupported_provider": "task_fail_resume_unsupported_provider",
+    "resume_unsupported_capacity_zero": "task_fail_resume_unsupported_capacity_zero",
+    "resume_unsupported_detail": "task_fail_resume_unsupported_detail",
+    "resume_expired_detail": "task_fail_resume_expired_detail",
+    "resume_endpoint_changed_detail": "task_fail_resume_endpoint_changed_detail",
+    "declarative_template_render_failed": "task_fail_declarative_template_render_failed",
+    "declarative_response_extract_failed": "task_fail_declarative_response_extract_failed",
+    "declarative_image_save_failed": "task_fail_declarative_image_save_failed",
+    "comfyui_reference_audio_invalid": "task_fail_comfyui_reference_audio_invalid",
+    "comfyui_aspect_ratio_unmapped": "task_fail_comfyui_aspect_ratio_unmapped",
+    # 参考图或首尾帧不足时的改图失败：级联触到产物节点，这份 workflow 出片本身依赖那张图。
+    "comfyui_image_drop_unsupported": "task_fail_comfyui_image_drop_unsupported",
+    "comfyui_upload_failed": "task_fail_comfyui_upload_failed",
+    "comfyui_node_errors": "task_fail_comfyui_node_errors",
+    "comfyui_nodes_unreachable": "task_fail_comfyui_nodes_unreachable",
+    "comfyui_job_lost": "task_fail_comfyui_job_lost",
+    "comfyui_execution_error": "task_fail_comfyui_execution_error",
+    "comfyui_interrupted": "task_fail_comfyui_interrupted",
+    "comfyui_output_missing": "task_fail_comfyui_output_missing",
+    # 图片供应商成功响应却没带回图片（多为内容安全过滤）：见 ImageOutputMissingError。
+    "image_output_missing": "task_fail_image_output_missing",
+    # 返回的图片格式转不成位图（如矢量 SVG）：见 ImageOutputFormatError。
+    "image_output_format_unsupported": "task_fail_image_output_format_unsupported",
+    "comfyui_output_type_mismatch": "task_fail_comfyui_output_type_mismatch",
+    "comfyui_output_container_mismatch": "task_fail_comfyui_output_container_mismatch",
+    "artifact_download_failed": "task_fail_artifact_download_failed",
+    "restart_lost_checkpoint_no_job_id": "task_fail_restart_lost_checkpoint_no_job_id",
+    "execution_identity_unrecoverable": "task_fail_execution_identity_unrecoverable",
+    # ScriptEditError.key 本身就是 errors.py 的 key（见 lib/script/script_editor.py），无需前缀间接层。
+    "script_edit_error": "script_edit_error",
+    "script_edit_items_not_list": "script_edit_items_not_list",
+    "script_edit_unit_lists_invalid": "script_edit_unit_lists_invalid",
+    "script_edit_generated_assets_invalid": "script_edit_generated_assets_invalid",
+    # 级联失败（TaskRepository._cascade_failed_queued）：reason 嵌套存储被级联依赖任务自身
+    # 的失败原因（可能又是一个结构化编码串），渲染时递归展开，见 render_failure。
+    "cascade_blocked_dependency": "task_fail_cascade_blocked_dependency",
+}
+
+# A structured reason is ``[code]`` optionally followed by a single space and a
+# JSON object of params. Anchored at both ends so legacy ``[restart_lost] 中文``
+# (non-JSON tail) and arbitrary exception text never match. DOTALL keeps the JSON
+# group matching even if a param value contains an escaped newline.
+_STRUCTURED_RE = re.compile(r"^\[(\w+)\](?:[ ](\{.*\}))?$", re.DOTALL)
+
+CASCADE_FAILURE_CODE = "cascade_blocked_dependency"
+
+# collapse_cascade_reason 的解包上限，纯粹的空转防线。
+_MAX_CASCADE_UNWRAP = 100
+
+
+def encode_failure(code: str, /, **params: Any) -> str:
+    """Encode a known failure code (+ params) into the stored machine string.
+
+    ``[code]`` when there are no params, otherwise ``[code] {sorted-json}``.
+    Raises ``KeyError`` for codes not declared in :data:`FAILURE_CODE_KEYS`, so a
+    typo fails fast at the call site instead of silently storing an unrenderable
+    reason.
+
+    Param values are stringified when not JSON-native (``default=str``): capability
+    codes carry whatever the caller rejected — e.g. ``video_duration_invalid`` echoes
+    the raw payload value — and a failed task must still record a reason rather than
+    have encoding raise inside the failure path.
+    """
+    if code not in FAILURE_CODE_KEYS:
+        raise KeyError(f"unknown failure code: {code!r}")
+    if params:
+        return f"[{code}] {json.dumps(params, ensure_ascii=False, sort_keys=True, default=str)}"
+    return f"[{code}]"
+
+
+def collapse_cascade_reason(reason: str) -> str:
+    """把嵌套的级联原因折叠成最内层的根本原因，供级联编码前调用。
+
+    逐层包裹会让串近指数增长：每一层都把上一层的整个信封重新编码进 JSON，转义使长度翻倍，
+    七层左右就会撑破落库预算，裁剪只能从尾部切字符，把内层信封切在 JSON 中途——外层仍可解析，
+    读侧却把残缺的内层当普通文本原样嵌进本地化文案里。
+
+    中间层携带的只是「另一个同样被阻塞的任务 id」，用户能据以行动的是直接依赖与根本原因两项，
+    前者由外层自己的 ``dependency_task_id`` 保留。折叠后串长与依赖链深度无关。
+    """
+    seen = 0
+    while True:
+        parsed = parse_failure(reason)
+        if parsed is None or parsed[0] != CASCADE_FAILURE_CODE:
+            return reason
+        nested = parsed[1].get("reason")
+        if not isinstance(nested, str):
+            return reason
+        reason = nested
+        seen += 1
+        if seen > _MAX_CASCADE_UNWRAP:
+            # 正常链路远达不到这个深度（撑破预算前就折叠掉了）。真撞上说明遇到了畸形或人造
+            # 的深层串，就地收手：返回当前层，不在落库路径上空转。
+            return reason
+
+
+def bound_reason(reason: str, limit: int) -> str:
+    """把 ``reason`` 裁剪到 ``limit`` 字符内，供级联失败编码前调用。
+
+    直接按字符截断合法的 ``[code] {params}`` 结构化串会切断 JSON 尾部，使
+    :func:`render_failure` 无法解析、原文未翻译地泄露给界面（如 ``resume_expired_detail``
+    的 ``detail`` 参数源自远端错误响应，可能长达上千字符）。这里优先裁剪结构化串里最长的
+    字符串参数，保持重新编码后仍是合法的 ``[code] {params}``；非结构化文本或裁剪后仍超限
+    时退回按原始字符裁剪。
+
+    超长的非字符串参数先降级成自身的 JSON 文本再参与裁剪：容器值同样可能撑爆预算——
+    ``video_duration_invalid`` 回显的是调用方拒绝的原始配置值，导入或手工编辑的
+    ``project.json`` 能把它写成一个大数组——而 JSON 原生类型不经 ``default=str``，
+    没有字符串参数可收窄时就会退到裸切片，把信封切在 JSON 中途。
+
+    裁剪按重新编码后的实际长度迭代收敛，不用一次算准的差值：``"`` 与 ``\\`` 之类的字符经
+    JSON 转义后占两列，超额长度与原始字符数不等长，一次估算会把本可收窄的参数误判成砍不动。
+    """
+    if len(reason) <= limit:
+        return reason
+    match = _STRUCTURED_RE.match(reason)
+    if match is None:
+        return reason[:limit]
+    code = match.group(1)
+    if code not in FAILURE_CODE_KEYS:
+        return reason[:limit]
+    raw_params = match.group(2)
+    if not raw_params:
+        return reason[:limit]
+    try:
+        parsed = json.loads(raw_params)
+    except (ValueError, RecursionError):
+        # 畸形 JSON，以及嵌套过深到 ``json.loads`` 自身撞递归上限的 params。裁剪发生在落库
+        # 路径上，异常逸出会让任务卡在 running，因此一并按不可解析处理，退回按字符裁剪。
+        return reason[:limit]
+    if not isinstance(parsed, dict):
+        return reason[:limit]
+    params = shrinkable_copy(parsed)
+
+    gaps = parsed.get("gaps")
+    kept_gaps: dict[str, dict[str, Any]] = {}
+    if (
+        code in GENERATION_INPUT_FAILURE_CODES
+        and isinstance(gaps, list)
+        and all(
+            isinstance(gap, dict)
+            and isinstance(gap.get("code"), str)
+            and gap["code"] in GENERATION_INPUT_FAILURE_CODES
+            and isinstance(gap.get("name"), str)
+            and gap.get("asset_type") in (None, "character", "scene", "prop", "product")
+            for gap in gaps
+        )
+    ):
+        # 超限时每种原因保留一个缺口及省略数量；机器码和分组结构不参与字符串裁剪。
+        for gap in gaps:
+            kept_gaps.setdefault(gap["code"], {key: gap.get(key) for key in ("code", "asset_type", "name")})
+        params["gaps"] = list(kept_gaps.values())
+        omitted = parsed.get("gaps_omitted", 0)
+        params["gaps_omitted"] = (omitted if isinstance(omitted, int) else 0) + len(gaps) - len(kept_gaps)
+
+    shrinkable: list[tuple[dict[str, Any], str]] = [
+        (params, key) for key, value in params.items() if isinstance(value, str)
+    ]
+    shrinkable.extend((gap, "name") for gap in kept_gaps.values())
+    shrinkable.extend(nested_detail_slots(params))
+    if not shrinkable:
+        return reason[:limit]
+
+    if not shrink_json_strings(params, shrinkable, params_budget(code, limit)):
+        return reason[:limit]
+    return encode_failure(code, **params)
+
+
+#: 文案里带一段「该端点应产出的扩展名」的两条失败码；清单在渲染时按落库的 media_type 现算。
+_COMFYUI_ARTIFACT_MISMATCH_CODES = frozenset({"comfyui_output_type_mismatch", "comfyui_output_container_mismatch"})
+
+
+def failure_message_key(code: str, params: Mapping[str, Any]) -> str:
+    """已登记失败码的文案 key。``model_discontinued`` 按参数里有没有下线日期与后继，选用省去对应一句的文案。"""
+    key = FAILURE_CODE_KEYS[code]
+    if code == "model_discontinued":
+        if not params.get("shutdown_date"):
+            key += "_undated"
+        if not params.get("successor"):
+            key += "_no_successor"
+    return key
+
+
+def render_failure(error_message: str | None, translate: Callable[..., str], names: DisplayNames) -> str | None:
+    """Render a stored failure reason for display via the request Translator.
+
+    Recognised ``[code]`` / ``[code] {params}`` strings render to localized text; cascade
+    reasons nest the upstream reason in their ``reason`` param and are expanded
+    recursively, so it is localized too. Everything else (raw exception text, legacy rows,
+    malformed payloads) passes through unchanged.
+
+    Cascade nesting is self-limiting: each layer re-encodes the previous envelope into JSON,
+    so escaping makes the string grow super-linearly and the write side caps it well before
+    the depth could threaten the recursion limit.
+
+    Provider and model IDs in the params render as display names from ``names``; the stored
+    params keep the IDs.
+
+    The two ComfyUI artifact-mismatch codes take their ``expected`` extension list from the
+    stored ``media_type`` here rather than from the row: the list is a projection of a static
+    whitelist, so every stored row — including those written before the text listed it —
+    renders with the whitelist this build actually enforces.
+    """
+    if not error_message:
+        return error_message
+    parsed = parse_failure(error_message)
+    if parsed is None:
+        return error_message
+    code, params = parsed
+    if code == CASCADE_FAILURE_CODE:
+        nested_reason = params.get("reason")
+        if isinstance(nested_reason, str):
+            params = {**params, "reason": render_failure(nested_reason, translate, names)}
+    if code in {"declarative_template_render_failed", "declarative_response_extract_failed"}:
+        detail = params.get("detail")
+        if is_validation_message(detail):
+            params = {**params, "detail": render_message(detail["key"], detail["params"], translate, names)}
+    if code in _COMFYUI_ARTIFACT_MISMATCH_CODES:
+        media_type = params.get("media_type")
+        params = {**params, "expected": expected_suffixes_text(media_type if isinstance(media_type, str) else "")}
+    return render_generation_input_error(failure_message_key(code, params), params, translate, names)
+
+
+def parse_failure(error_message: str | None) -> tuple[str, dict[str, Any]] | None:
+    """把已登记的 ``[code] {params}`` 拆成机器码与参数；原始/畸形原因返回 ``None``。"""
+    if not error_message:
+        return None
+    match = _STRUCTURED_RE.match(error_message)
+    if match is None:
+        return None
+    code = match.group(1)
+    if code not in FAILURE_CODE_KEYS:
+        return None
+    raw_params = match.group(2)
+    if not raw_params:
+        return code, {}
+    try:
+        parsed = json.loads(raw_params)
+    except (ValueError, RecursionError):
+        # 畸形 JSON，以及嵌套过深到 ``json.loads`` 自身撞递归上限的 payload。渲染发生在
+        # HTTP 请求内，异常逸出就是 500，因此一并按无法识别处理：调用方原样透传，原因不丢。
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    return code, parsed

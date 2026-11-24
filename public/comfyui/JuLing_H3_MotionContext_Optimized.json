@@ -1,0 +1,2044 @@
+{
+  "last_node_id": 31,
+  "last_link_id": 47,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "UNETLoader",
+      "title": "H3 FL2VA 模型（INT8）",
+      "pos": [
+        -1200,
+        -300
+      ],
+      "size": [
+        315,
+        110
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "unet_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "unet_name"
+          },
+          "link": null
+        },
+        {
+          "name": "weight_dtype",
+          "type": "COMBO",
+          "widget": {
+            "name": "weight_dtype"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader"
+      },
+      "widgets_values": [
+        "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "CLIPLoader",
+      "title": "Qwen3-VL H3 编码器",
+      "pos": [
+        -1200,
+        -100
+      ],
+      "size": [
+        315,
+        130
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "clip_name"
+          },
+          "link": null
+        },
+        {
+          "name": "type",
+          "type": "COMBO",
+          "widget": {
+            "name": "type"
+          },
+          "link": null
+        },
+        {
+          "name": "device",
+          "type": "COMBO",
+          "widget": {
+            "name": "device"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            2,
+            18
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPLoader"
+      },
+      "widgets_values": [
+        "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "minimax",
+        "default"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "VAELoader",
+      "title": "H3 视频 VAE",
+      "pos": [
+        -1200,
+        150
+      ],
+      "size": [
+        315,
+        100
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "vae_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "vae_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            3,
+            15,
+            19,
+            22,
+            33
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "minimax_h3_video_vae_int8_convrot.safetensors"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "VAELoader",
+      "title": "H3 音频 VAE",
+      "pos": [
+        -1200,
+        330
+      ],
+      "size": [
+        315,
+        100
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "vae_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "vae_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            17,
+            25,
+            35
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "minimax_h3_audio_vae_fp32.safetensors"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "MiniMaxH3SigmaShift",
+      "title": "H3 采样偏移 12 / 3",
+      "pos": [
+        -850,
+        -300
+      ],
+      "size": [
+        260,
+        110
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            5,
+            7,
+            20,
+            47
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3SigmaShift"
+      },
+      "widgets_values": [
+        12,
+        3
+      ]
+    },
+    {
+      "id": 6,
+      "type": "LoadImage",
+      "title": "首段首帧（可替换）",
+      "pos": [
+        -1200,
+        560
+      ],
+      "size": [
+        315,
+        150
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "COMBO",
+          "widget": {
+            "name": "image"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "JuLing_H3_anchor_reference_20261119.png",
+        "image"
+      ]
+    },
+    {
+      "id": 7,
+      "type": "MiniMaxH3ImageToVideo",
+      "title": "首段 H3 生成 · 124 帧",
+      "pos": [
+        -820,
+        80
+      ],
+      "size": [
+        320,
+        390
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 2
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 3
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": null
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": null
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": null
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "widget": {
+            "name": "length"
+          },
+          "link": null
+        },
+        {
+          "name": "first_frame",
+          "type": "IMAGE",
+          "link": 4
+        },
+        {
+          "name": "last_frame",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            6
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            12
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3ImageToVideo"
+      },
+      "widgets_values": [
+        "首段镜头。保持主体、服装、光线和镜头语言稳定，镜头缓慢推进，动作自然连续。",
+        1024,
+        576,
+        124
+      ]
+    },
+    {
+      "id": 8,
+      "type": "RandomNoise",
+      "title": "首段噪声",
+      "pos": [
+        -480,
+        -230
+      ],
+      "size": [
+        250,
+        90
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "noise_seed",
+          "type": "INT",
+          "widget": {
+            "name": "noise_seed"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "NOISE",
+          "type": "NOISE",
+          "links": [
+            8
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "RandomNoise"
+      },
+      "widgets_values": [
+        123456789
+      ]
+    },
+    {
+      "id": 9,
+      "type": "BasicGuider",
+      "title": "首段引导",
+      "pos": [
+        -480,
+        40
+      ],
+      "size": [
+        250,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 5
+        },
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "name": "GUIDER",
+          "type": "GUIDER",
+          "links": [
+            9
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "BasicGuider"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 10,
+      "type": "KSamplerSelect",
+      "title": "Euler",
+      "pos": [
+        -480,
+        230
+      ],
+      "size": [
+        250,
+        90
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "sampler_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "sampler_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "SAMPLER",
+          "type": "SAMPLER",
+          "links": [
+            10
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSamplerSelect"
+      },
+      "widgets_values": [
+        "euler"
+      ]
+    },
+    {
+      "id": 11,
+      "type": "BasicScheduler",
+      "title": "8 步 · simple",
+      "pos": [
+        -480,
+        390
+      ],
+      "size": [
+        250,
+        150
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 7
+        },
+        {
+          "name": "scheduler",
+          "type": "COMBO",
+          "widget": {
+            "name": "scheduler"
+          },
+          "link": null
+        },
+        {
+          "name": "steps",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": null
+        },
+        {
+          "name": "denoise",
+          "type": "FLOAT",
+          "widget": {
+            "name": "denoise"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "SIGMAS",
+          "type": "SIGMAS",
+          "links": [
+            11
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "BasicScheduler"
+      },
+      "widgets_values": [
+        "simple",
+        8,
+        1
+      ]
+    },
+    {
+      "id": 12,
+      "type": "SamplerCustomAdvanced",
+      "title": "首段采样",
+      "pos": [
+        -120,
+        20
+      ],
+      "size": [
+        300,
+        220
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "noise",
+          "type": "NOISE",
+          "link": 8
+        },
+        {
+          "name": "guider",
+          "type": "GUIDER",
+          "link": 9
+        },
+        {
+          "name": "sampler",
+          "type": "SAMPLER",
+          "link": 10
+        },
+        {
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "link": 11
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "LATENT",
+          "links": [
+            13,
+            14,
+            16,
+            24
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "denoised_output",
+          "type": "LATENT",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SamplerCustomAdvanced"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 13,
+      "type": "MiniMaxH3MotionContextSaveLatent",
+      "title": "保存首段上下文",
+      "pos": [
+        -120,
+        300
+      ],
+      "size": [
+        280,
+        150
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "link": 13
+        },
+        {
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        },
+        {
+          "name": "clip_index",
+          "type": "INT",
+          "widget": {
+            "name": "clip_index"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "latent_path",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3MotionContextSaveLatent"
+      },
+      "widgets_values": [
+        "h3_context/clip",
+        1
+      ]
+    },
+    {
+      "id": 14,
+      "type": "VAEDecode",
+      "title": "首段画面解码",
+      "pos": [
+        -120,
+        560
+      ],
+      "size": [
+        260,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 14
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 15
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 15,
+      "type": "VAEDecodeAudio",
+      "title": "首段音频解码",
+      "pos": [
+        -120,
+        740
+      ],
+      "size": [
+        260,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 16
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 17
+        }
+      ],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            41
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecodeAudio"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 16,
+      "type": "MiniMaxH3ImageToVideo",
+      "title": "二段 H3 生成 · 124 帧",
+      "pos": [
+        -820,
+        980
+      ],
+      "size": [
+        320,
+        390
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 18
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 19
+        },
+        {
+          "name": "prompt",
+          "type": "STRING",
+          "widget": {
+            "name": "prompt"
+          },
+          "link": null
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": null
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": null
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "widget": {
+            "name": "length"
+          },
+          "link": null
+        },
+        {
+          "name": "first_frame",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "last_frame",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            21
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            23,
+            30
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3ImageToVideo"
+      },
+      "widgets_values": [
+        "二段镜头。延续上一段动作和摄影机运动，自然向前发展，保持角色身份、服装、环境和色彩连续。",
+        1024,
+        576,
+        124
+      ]
+    },
+    {
+      "id": 17,
+      "type": "MiniMaxH3MotionContext",
+      "title": "H3 Motion Context · 22 帧",
+      "pos": [
+        -420,
+        950
+      ],
+      "size": [
+        320,
+        330
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 21
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 22
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "link": 23
+        },
+        {
+          "name": "context_length",
+          "type": "COMBO",
+          "widget": {
+            "name": "context_length"
+          },
+          "link": null
+        },
+        {
+          "name": "audio_context_length",
+          "type": "INT",
+          "widget": {
+            "name": "audio_context_length"
+          },
+          "link": null
+        },
+        {
+          "name": "context_frames",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "context_latent",
+          "type": "LATENT",
+          "link": 24
+        },
+        {
+          "name": "audio_vae",
+          "type": "VAE",
+          "link": 25
+        },
+        {
+          "name": "context_audio",
+          "type": "AUDIO",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "links": [
+            46
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "trim_frames",
+          "type": "INT",
+          "links": [
+            37
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3MotionContext"
+      },
+      "widgets_values": [
+        "22",
+        18
+      ]
+    },
+    {
+      "id": 18,
+      "type": "RandomNoise",
+      "title": "二段噪声",
+      "pos": [
+        -60,
+        970
+      ],
+      "size": [
+        250,
+        90
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "noise_seed",
+          "type": "INT",
+          "widget": {
+            "name": "noise_seed"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "NOISE",
+          "type": "NOISE",
+          "links": [
+            26
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "RandomNoise"
+      },
+      "widgets_values": [
+        987654321
+      ]
+    },
+    {
+      "id": 19,
+      "type": "BasicGuider",
+      "title": "二段引导",
+      "pos": [
+        -60,
+        1120
+      ],
+      "size": [
+        250,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 20
+        },
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 46
+        }
+      ],
+      "outputs": [
+        {
+          "name": "GUIDER",
+          "type": "GUIDER",
+          "links": [
+            27
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "BasicGuider"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 20,
+      "type": "KSamplerSelect",
+      "title": "Euler",
+      "pos": [
+        -60,
+        1280
+      ],
+      "size": [
+        250,
+        90
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "sampler_name",
+          "type": "COMBO",
+          "widget": {
+            "name": "sampler_name"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "SAMPLER",
+          "type": "SAMPLER",
+          "links": [
+            28
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSamplerSelect"
+      },
+      "widgets_values": [
+        "euler"
+      ]
+    },
+    {
+      "id": 21,
+      "type": "BasicScheduler",
+      "title": "8 步 · simple",
+      "pos": [
+        -60,
+        1430
+      ],
+      "size": [
+        250,
+        150
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 47
+        },
+        {
+          "name": "scheduler",
+          "type": "COMBO",
+          "widget": {
+            "name": "scheduler"
+          },
+          "link": null
+        },
+        {
+          "name": "steps",
+          "type": "INT",
+          "widget": {
+            "name": "steps"
+          },
+          "link": null
+        },
+        {
+          "name": "denoise",
+          "type": "FLOAT",
+          "widget": {
+            "name": "denoise"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "SIGMAS",
+          "type": "SIGMAS",
+          "links": [
+            29
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "BasicScheduler"
+      },
+      "widgets_values": [
+        "simple",
+        8,
+        1
+      ]
+    },
+    {
+      "id": 22,
+      "type": "SamplerCustomAdvanced",
+      "title": "二段采样",
+      "pos": [
+        300,
+        1020
+      ],
+      "size": [
+        300,
+        220
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "noise",
+          "type": "NOISE",
+          "link": 26
+        },
+        {
+          "name": "guider",
+          "type": "GUIDER",
+          "link": 27
+        },
+        {
+          "name": "sampler",
+          "type": "SAMPLER",
+          "link": 28
+        },
+        {
+          "name": "sigmas",
+          "type": "SIGMAS",
+          "link": 29
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 30
+        }
+      ],
+      "outputs": [
+        {
+          "name": "output",
+          "type": "LATENT",
+          "links": [
+            31,
+            32,
+            34
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "denoised_output",
+          "type": "LATENT",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SamplerCustomAdvanced"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 23,
+      "type": "MiniMaxH3MotionContextSaveLatent",
+      "title": "保存二段上下文",
+      "pos": [
+        300,
+        1300
+      ],
+      "size": [
+        280,
+        150
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "link": 31
+        },
+        {
+          "name": "filename_prefix",
+          "type": "STRING",
+          "widget": {
+            "name": "filename_prefix"
+          },
+          "link": null
+        },
+        {
+          "name": "clip_index",
+          "type": "INT",
+          "widget": {
+            "name": "clip_index"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "latent_path",
+          "type": "STRING",
+          "links": null,
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3MotionContextSaveLatent"
+      },
+      "widgets_values": [
+        "h3_context/clip",
+        2
+      ]
+    },
+    {
+      "id": 24,
+      "type": "VAEDecode",
+      "title": "二段画面解码",
+      "pos": [
+        620,
+        1010
+      ],
+      "size": [
+        260,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 32
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 33
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            36,
+            39
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 25,
+      "type": "VAEDecodeAudio",
+      "title": "二段音频解码",
+      "pos": [
+        620,
+        1190
+      ],
+      "size": [
+        260,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 34
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 35
+        }
+      ],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            38
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecodeAudio"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 26,
+      "type": "MiniMaxH3MotionContextTrim",
+      "title": "裁掉二段 22 帧上下文",
+      "pos": [
+        930,
+        1050
+      ],
+      "size": [
+        300,
+        180
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 36
+        },
+        {
+          "name": "trim_frames",
+          "type": "INT",
+          "link": 37
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 38
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "widget": {
+            "name": "fps"
+          },
+          "link": null
+        },
+        {
+          "name": "match_tail",
+          "type": "BOOLEAN",
+          "widget": {
+            "name": "match_tail"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            40
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            42
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MiniMaxH3MotionContextTrim"
+      },
+      "widgets_values": [
+        24,
+        true
+      ]
+    },
+    {
+      "id": 27,
+      "type": "ImageBatch",
+      "title": "合并两段画面",
+      "pos": [
+        1270,
+        680
+      ],
+      "size": [
+        260,
+        100
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image1",
+          "type": "IMAGE",
+          "link": 39
+        },
+        {
+          "name": "image2",
+          "type": "IMAGE",
+          "link": 40
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            43
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageBatch"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 28,
+      "type": "AudioConcat",
+      "title": "合并两段音频",
+      "pos": [
+        1270,
+        910
+      ],
+      "size": [
+        260,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "audio1",
+          "type": "AUDIO",
+          "link": 41
+        },
+        {
+          "name": "audio2",
+          "type": "AUDIO",
+          "link": 42
+        },
+        {
+          "name": "direction",
+          "type": "COMBO",
+          "widget": {
+            "name": "direction"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            44
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AudioConcat"
+      },
+      "widgets_values": [
+        "after"
+      ]
+    },
+    {
+      "id": 29,
+      "type": "CreateVideo",
+      "title": "24 fps 合成",
+      "pos": [
+        1580,
+        760
+      ],
+      "size": [
+        260,
+        140
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 43
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 44
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "widget": {
+            "name": "fps"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            45
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo"
+      },
+      "widgets_values": [
+        24
+      ]
+    },
+    {
+      "id": 30,
+      "type": "SaveVideo",
+      "title": "保存无缝视频",
+      "pos": [
+        1880,
+        760
+      ],
+      "size": [
+        330,
+        300
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 45
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/JuLing_H3_MotionContext_Optimized",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 31,
+      "type": "Note",
+      "title": "优化参数说明",
+      "pos": [
+        1270,
+        120
+      ],
+      "size": [
+        480,
+        180
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "Note"
+      },
+      "widgets_values": [
+        "默认 1024×576 / 124 帧 / 8 步。22 帧上下文约 0.92 秒，避免重复解码上一段潜变量。需要更快时将分辨率降到 960×544。"
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      5,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      2,
+      0,
+      7,
+      0,
+      "CLIP"
+    ],
+    [
+      3,
+      3,
+      0,
+      7,
+      1,
+      "VAE"
+    ],
+    [
+      4,
+      6,
+      0,
+      7,
+      6,
+      "IMAGE"
+    ],
+    [
+      5,
+      5,
+      0,
+      9,
+      0,
+      "MODEL"
+    ],
+    [
+      6,
+      7,
+      0,
+      9,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      7,
+      5,
+      0,
+      11,
+      0,
+      "MODEL"
+    ],
+    [
+      8,
+      8,
+      0,
+      12,
+      0,
+      "NOISE"
+    ],
+    [
+      9,
+      9,
+      0,
+      12,
+      1,
+      "GUIDER"
+    ],
+    [
+      10,
+      10,
+      0,
+      12,
+      2,
+      "SAMPLER"
+    ],
+    [
+      11,
+      11,
+      0,
+      12,
+      3,
+      "SIGMAS"
+    ],
+    [
+      12,
+      7,
+      1,
+      12,
+      4,
+      "LATENT"
+    ],
+    [
+      13,
+      12,
+      0,
+      13,
+      0,
+      "LATENT"
+    ],
+    [
+      14,
+      12,
+      0,
+      14,
+      0,
+      "LATENT"
+    ],
+    [
+      15,
+      3,
+      0,
+      14,
+      1,
+      "VAE"
+    ],
+    [
+      16,
+      12,
+      0,
+      15,
+      0,
+      "LATENT"
+    ],
+    [
+      17,
+      4,
+      0,
+      15,
+      1,
+      "VAE"
+    ],
+    [
+      18,
+      2,
+      0,
+      16,
+      0,
+      "CLIP"
+    ],
+    [
+      19,
+      3,
+      0,
+      16,
+      1,
+      "VAE"
+    ],
+    [
+      20,
+      5,
+      0,
+      19,
+      0,
+      "MODEL"
+    ],
+    [
+      21,
+      16,
+      0,
+      17,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      22,
+      3,
+      0,
+      17,
+      1,
+      "VAE"
+    ],
+    [
+      23,
+      16,
+      1,
+      17,
+      2,
+      "LATENT"
+    ],
+    [
+      24,
+      12,
+      0,
+      17,
+      6,
+      "LATENT"
+    ],
+    [
+      25,
+      4,
+      0,
+      17,
+      7,
+      "VAE"
+    ],
+    [
+      26,
+      18,
+      0,
+      22,
+      0,
+      "NOISE"
+    ],
+    [
+      27,
+      19,
+      0,
+      22,
+      1,
+      "GUIDER"
+    ],
+    [
+      28,
+      20,
+      0,
+      22,
+      2,
+      "SAMPLER"
+    ],
+    [
+      29,
+      21,
+      0,
+      22,
+      3,
+      "SIGMAS"
+    ],
+    [
+      30,
+      16,
+      1,
+      22,
+      4,
+      "LATENT"
+    ],
+    [
+      31,
+      22,
+      0,
+      23,
+      0,
+      "LATENT"
+    ],
+    [
+      32,
+      22,
+      0,
+      24,
+      0,
+      "LATENT"
+    ],
+    [
+      33,
+      3,
+      0,
+      24,
+      1,
+      "VAE"
+    ],
+    [
+      34,
+      22,
+      0,
+      25,
+      0,
+      "LATENT"
+    ],
+    [
+      35,
+      4,
+      0,
+      25,
+      1,
+      "VAE"
+    ],
+    [
+      36,
+      24,
+      0,
+      26,
+      0,
+      "IMAGE"
+    ],
+    [
+      37,
+      17,
+      1,
+      26,
+      1,
+      "INT"
+    ],
+    [
+      38,
+      25,
+      0,
+      26,
+      2,
+      "AUDIO"
+    ],
+    [
+      39,
+      24,
+      0,
+      27,
+      0,
+      "IMAGE"
+    ],
+    [
+      40,
+      26,
+      0,
+      27,
+      1,
+      "IMAGE"
+    ],
+    [
+      41,
+      15,
+      0,
+      28,
+      0,
+      "AUDIO"
+    ],
+    [
+      42,
+      26,
+      1,
+      28,
+      1,
+      "AUDIO"
+    ],
+    [
+      43,
+      27,
+      0,
+      29,
+      0,
+      "IMAGE"
+    ],
+    [
+      44,
+      28,
+      0,
+      29,
+      1,
+      "AUDIO"
+    ],
+    [
+      45,
+      29,
+      0,
+      30,
+      0,
+      "VIDEO"
+    ],
+    [
+      46,
+      17,
+      0,
+      19,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      47,
+      5,
+      0,
+      21,
+      0,
+      "MODEL"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.7,
+      "offset": [
+        0,
+        0
+      ]
+    },
+    "frontendVersion": "1.0.0"
+  },
+  "version": 0.4
+}

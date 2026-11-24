@@ -1,0 +1,2011 @@
+{
+  "last_node_id": 35,
+  "last_link_id": 46,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadVideo",
+      "title": "① 前一段 MP4",
+      "pos": [
+        20,
+        80
+      ],
+      "size": [
+        270,
+        220
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadVideo"
+      },
+      "widgets_values": [
+        "clip_1.mp4",
+        "image"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "LoadVideo",
+      "title": "② 后一段 MP4",
+      "pos": [
+        20,
+        540
+      ],
+      "size": [
+        270,
+        220
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            2
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadVideo"
+      },
+      "widgets_values": [
+        "clip_2.mp4",
+        "image"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "GetVideoComponents",
+      "title": "拆分画面、音轨和帧率",
+      "pos": [
+        320,
+        80
+      ],
+      "size": [
+        245,
+        85
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            3
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            24
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "links": [
+            21,
+            34,
+            37
+          ],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GetVideoComponents"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 4,
+      "type": "GetVideoComponents",
+      "title": "拆分画面、音轨和帧率",
+      "pos": [
+        320,
+        540
+      ],
+      "size": [
+        245,
+        85
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 2
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            4
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            29
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "links": [
+            26,
+            41
+          ],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GetVideoComponents"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 5,
+      "type": "GetImageSize",
+      "title": "读取视频帧数",
+      "pos": [
+        595,
+        80
+      ],
+      "size": [
+        245,
+        85
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "links": [],
+          "slot_index": 0
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "batch_size",
+          "type": "INT",
+          "links": [
+            36
+          ],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GetImageSize"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 6,
+      "type": "GetImageSize",
+      "title": "读取视频帧数",
+      "pos": [
+        865,
+        1040
+      ],
+      "size": [
+        245,
+        85
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "links": [],
+          "slot_index": 0
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "batch_size",
+          "type": "INT",
+          "links": [
+            40
+          ],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GetImageSize"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 7,
+      "type": "ComfyMathExpression",
+      "title": "前段保留帧数",
+      "pos": [
+        865,
+        80
+      ],
+      "size": [
+        245,
+        122
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "values.a",
+          "type": "FLOAT,INT",
+          "link": 46
+        },
+        {
+          "name": "values.b",
+          "type": "FLOAT,INT",
+          "label": "b",
+          "shape": 7,
+          "link": null
+        },
+        {
+          "name": "values.c",
+          "type": "FLOAT,INT",
+          "label": "c",
+          "shape": 7,
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [],
+          "slot_index": 0
+        },
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            7
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ComfyMathExpression"
+      },
+      "widgets_values": [
+        "a - 4"
+      ]
+    },
+    {
+      "id": 8,
+      "type": "ImageFromBatch",
+      "title": "前段：保留至接缝前",
+      "pos": [
+        1140,
+        80
+      ],
+      "size": [
+        245,
+        110
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 6
+        },
+        {
+          "name": "batch_index",
+          "type": "INT",
+          "widget": {
+            "name": "batch_index"
+          },
+          "link": null
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "link": 7,
+          "widget": {
+            "name": "length"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            16
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageFromBatch"
+      },
+      "widgets_values": [
+        0,
+        92
+      ]
+    },
+    {
+      "id": 9,
+      "type": "ImageFromBatch",
+      "title": "前段：左锚点（倒数第 5 帧）",
+      "pos": [
+        1140,
+        285
+      ],
+      "size": [
+        245,
+        110
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            11
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageFromBatch"
+      },
+      "widgets_values": [
+        -5,
+        1
+      ]
+    },
+    {
+      "id": 10,
+      "type": "ImageFromBatch",
+      "title": "后段：右锚点（第 5 帧）",
+      "pos": [
+        595,
+        485
+      ],
+      "size": [
+        245,
+        110
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 9
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            12
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageFromBatch"
+      },
+      "widgets_values": [
+        4,
+        1
+      ]
+    },
+    {
+      "id": 11,
+      "type": "ImageFromBatch",
+      "title": "后段：从右锚点保留至结尾",
+      "pos": [
+        1140,
+        722
+      ],
+      "size": [
+        245,
+        110
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            19
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageFromBatch"
+      },
+      "widgets_values": [
+        4,
+        4096
+      ]
+    },
+    {
+      "id": 12,
+      "type": "ImageBatch",
+      "title": "合并前后锚点",
+      "pos": [
+        865,
+        385
+      ],
+      "size": [
+        245,
+        85
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image1",
+          "type": "IMAGE",
+          "link": 11
+        },
+        {
+          "name": "image2",
+          "type": "IMAGE",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            14
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageBatch"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 13,
+      "type": "FrameInterpolationModelLoader",
+      "title": "FILM 补帧模型",
+      "pos": [
+        865,
+        565
+      ],
+      "size": [
+        245,
+        86
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INTERP_MODEL",
+          "type": "INTERP_MODEL",
+          "links": [
+            13
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FrameInterpolationModelLoader",
+        "models": [
+          {
+            "name": "film_net_fp16.safetensors",
+            "directory": "frame_interpolation",
+            "url": "https://huggingface.co/Comfy-Org/frame_interpolation/resolve/main/frame_interpolation/film_net_fp16.safetensors"
+          }
+        ]
+      },
+      "widgets_values": [
+        "film_net_fp16.safetensors"
+      ]
+    },
+    {
+      "id": 14,
+      "type": "FrameInterpolate",
+      "title": "③ 双端补帧：2 帧生成 10 帧",
+      "pos": [
+        1140,
+        385
+      ],
+      "size": [
+        255,
+        112
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "interp_model",
+          "type": "INTERP_MODEL",
+          "link": 13
+        },
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 14
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            15
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FrameInterpolate"
+      },
+      "widgets_values": [
+        9
+      ]
+    },
+    {
+      "id": 15,
+      "type": "ImageFromBatch",
+      "title": "只取中间 8 帧（去重两个锚点）",
+      "pos": [
+        1420,
+        385
+      ],
+      "size": [
+        245,
+        110
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 15
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            17
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageFromBatch"
+      },
+      "widgets_values": [
+        1,
+        8
+      ]
+    },
+    {
+      "id": 16,
+      "type": "ImageBatch",
+      "title": "前段 + 修复帧",
+      "pos": [
+        1690,
+        230
+      ],
+      "size": [
+        245,
+        85
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image1",
+          "type": "IMAGE",
+          "link": 16
+        },
+        {
+          "name": "image2",
+          "type": "IMAGE",
+          "link": 17
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            18
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageBatch"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 17,
+      "type": "ImageBatch",
+      "title": "画面拼接完成",
+      "pos": [
+        1960,
+        385
+      ],
+      "size": [
+        245,
+        85
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image1",
+          "type": "IMAGE",
+          "link": 18
+        },
+        {
+          "name": "image2",
+          "type": "IMAGE",
+          "link": 19
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            32
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageBatch"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 18,
+      "type": "ComfyMathExpression",
+      "title": "前段画面时长（秒）",
+      "pos": [
+        320,
+        1100
+      ],
+      "size": [
+        245,
+        122
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "values.a",
+          "type": "FLOAT,INT",
+          "link": 20
+        },
+        {
+          "name": "values.b",
+          "type": "FLOAT,INT",
+          "link": 21
+        },
+        {
+          "name": "values.c",
+          "type": "FLOAT,INT",
+          "label": "c",
+          "shape": 7,
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [
+            22
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ComfyMathExpression"
+      },
+      "widgets_values": [
+        "a / b"
+      ]
+    },
+    {
+      "id": 19,
+      "type": "EmptyAudio",
+      "title": "前段等长静音底轨",
+      "pos": [
+        595,
+        1100
+      ],
+      "size": [
+        245,
+        132
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "duration",
+          "type": "FLOAT",
+          "link": 22,
+          "widget": {
+            "name": "duration"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            23
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "EmptyAudio"
+      },
+      "widgets_values": [
+        4,
+        48000,
+        2
+      ]
+    },
+    {
+      "id": 20,
+      "type": "AudioMerge",
+      "title": "前段原音轨：截齐或补静音",
+      "pos": [
+        870,
+        1100
+      ],
+      "size": [
+        245,
+        114
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "audio1",
+          "type": "AUDIO",
+          "link": 23
+        },
+        {
+          "name": "audio2",
+          "type": "AUDIO",
+          "link": 24
+        }
+      ],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            30
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AudioMerge"
+      },
+      "widgets_values": [
+        "add"
+      ]
+    },
+    {
+      "id": 21,
+      "type": "ComfyMathExpression",
+      "title": "后段画面时长（秒）",
+      "pos": [
+        320,
+        1290
+      ],
+      "size": [
+        245,
+        122
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "values.a",
+          "type": "FLOAT,INT",
+          "link": 25
+        },
+        {
+          "name": "values.b",
+          "type": "FLOAT,INT",
+          "link": 26
+        },
+        {
+          "name": "values.c",
+          "type": "FLOAT,INT",
+          "label": "c",
+          "shape": 7,
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [
+            27
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ComfyMathExpression"
+      },
+      "widgets_values": [
+        "a / b"
+      ]
+    },
+    {
+      "id": 22,
+      "type": "EmptyAudio",
+      "title": "后段等长静音底轨",
+      "pos": [
+        595,
+        1290
+      ],
+      "size": [
+        245,
+        132
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "duration",
+          "type": "FLOAT",
+          "link": 27,
+          "widget": {
+            "name": "duration"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            28
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "EmptyAudio"
+      },
+      "widgets_values": [
+        4,
+        48000,
+        2
+      ]
+    },
+    {
+      "id": 23,
+      "type": "AudioMerge",
+      "title": "后段原音轨：截齐或补静音",
+      "pos": [
+        870,
+        1290
+      ],
+      "size": [
+        245,
+        114
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "audio1",
+          "type": "AUDIO",
+          "link": 28
+        },
+        {
+          "name": "audio2",
+          "type": "AUDIO",
+          "link": 29
+        }
+      ],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            31
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AudioMerge"
+      },
+      "widgets_values": [
+        "add"
+      ]
+    },
+    {
+      "id": 24,
+      "type": "AudioConcat",
+      "title": "按顺序拼接原音轨",
+      "pos": [
+        1430,
+        1100
+      ],
+      "size": [
+        250,
+        115
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "audio1",
+          "type": "AUDIO",
+          "link": 30
+        },
+        {
+          "name": "audio2",
+          "type": "AUDIO",
+          "link": 31
+        }
+      ],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            33
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "AudioConcat"
+      },
+      "widgets_values": [
+        "after"
+      ]
+    },
+    {
+      "id": 25,
+      "type": "CreateVideo",
+      "title": "④ 按原帧率合成",
+      "pos": [
+        2230,
+        385
+      ],
+      "size": [
+        240,
+        140
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 32
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 33
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "link": 34,
+          "widget": {
+            "name": "fps"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            35
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo"
+      },
+      "widgets_values": [
+        24
+      ]
+    },
+    {
+      "id": 26,
+      "type": "SaveVideo",
+      "title": "⑤ 保存修复后的完整视频",
+      "pos": [
+        2500,
+        385
+      ],
+      "size": [
+        325,
+        310
+      ],
+      "flags": {},
+      "order": 25,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 35
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveVideo"
+      },
+      "widgets_values": [
+        "video/JuLing_SeamRepaired",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 27,
+      "type": "MarkdownNote",
+      "title": "使用说明",
+      "pos": [
+        20,
+        815
+      ],
+      "size": [
+        275,
+        460
+      ],
+      "flags": {},
+      "order": 26,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "两个片段分别设定目标时长，默认各 2 秒。工作流按输入帧率换算目标帧数，超出的尾帧先裁掉，较短片段保留现有帧数，再只补接缝并按原帧率合成。\n\n两段需同帧率、同分辨率；各至少 5 帧。若片段短于目标时长，会按实际帧数输出。\n\nFILM 只处理接缝锚点，不重新运行 Pika、放大或 TaoMate。大幅变脸、跳景、掉帧需改生成参考或用其他方式修复。\n\n原音轨按裁切后的视频时长补静音或裁齐后拼接，不重生成语音。\n\n需带 Frame Interpolation 节点的 ComfyUI，模型：`models/frame_interpolation/film_net_fp16.safetensors`。"
+      ]
+    },
+    {
+      "id": 28,
+      "type": "PrimitiveFloat",
+      "title": "前段目标时长（秒）",
+      "pos": [
+        20,
+        330
+      ],
+      "size": [
+        245,
+        85
+      ],
+      "flags": {},
+      "order": 27,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "value",
+          "type": "FLOAT",
+          "widget": {
+            "name": "value"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [
+            38
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PrimitiveFloat"
+      },
+      "widgets_values": [
+        2
+      ]
+    },
+    {
+      "id": 29,
+      "type": "PrimitiveFloat",
+      "title": "后段目标时长（秒）",
+      "pos": [
+        20,
+        820
+      ],
+      "size": [
+        245,
+        85
+      ],
+      "flags": {},
+      "order": 28,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "value",
+          "type": "FLOAT",
+          "widget": {
+            "name": "value"
+          },
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [
+            42
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "PrimitiveFloat"
+      },
+      "widgets_values": [
+        2
+      ]
+    },
+    {
+      "id": 30,
+      "type": "ComfyMathExpression",
+      "title": "前段目标帧数",
+      "pos": [
+        320,
+        330
+      ],
+      "size": [
+        245,
+        150
+      ],
+      "flags": {},
+      "order": 29,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "values.a",
+          "type": "FLOAT,INT",
+          "link": 36
+        },
+        {
+          "name": "values.b",
+          "type": "FLOAT,INT",
+          "label": "b",
+          "shape": 7,
+          "link": 37
+        },
+        {
+          "name": "values.c",
+          "type": "FLOAT,INT",
+          "label": "c",
+          "shape": 7,
+          "link": 38
+        }
+      ],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [],
+          "slot_index": 0
+        },
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            39
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "BOOLEAN",
+          "type": "BOOLEAN",
+          "links": [],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ComfyMathExpression"
+      },
+      "widgets_values": [
+        "min(a, round(b * c))"
+      ]
+    },
+    {
+      "id": 31,
+      "type": "ComfyMathExpression",
+      "title": "后段目标帧数",
+      "pos": [
+        320,
+        820
+      ],
+      "size": [
+        245,
+        150
+      ],
+      "flags": {},
+      "order": 30,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "values.a",
+          "type": "FLOAT,INT",
+          "link": 40
+        },
+        {
+          "name": "values.b",
+          "type": "FLOAT,INT",
+          "label": "b",
+          "shape": 7,
+          "link": 41
+        },
+        {
+          "name": "values.c",
+          "type": "FLOAT,INT",
+          "label": "c",
+          "shape": 7,
+          "link": 42
+        }
+      ],
+      "outputs": [
+        {
+          "name": "FLOAT",
+          "type": "FLOAT",
+          "links": [],
+          "slot_index": 0
+        },
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            43
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "BOOLEAN",
+          "type": "BOOLEAN",
+          "links": [],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ComfyMathExpression"
+      },
+      "widgets_values": [
+        "min(a, round(b * c))"
+      ]
+    },
+    {
+      "id": 32,
+      "type": "ImageFromBatch",
+      "title": "前段：按目标时长裁帧",
+      "pos": [
+        595,
+        330
+      ],
+      "size": [
+        245,
+        110
+      ],
+      "flags": {},
+      "order": 31,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "batch_index",
+          "type": "INT",
+          "widget": {
+            "name": "batch_index"
+          },
+          "link": null
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "widget": {
+            "name": "length"
+          },
+          "link": 39
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            6,
+            8,
+            44
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageFromBatch"
+      },
+      "widgets_values": [
+        0,
+        48
+      ]
+    },
+    {
+      "id": 33,
+      "type": "ImageFromBatch",
+      "title": "后段：按目标时长裁帧",
+      "pos": [
+        595,
+        820
+      ],
+      "size": [
+        245,
+        110
+      ],
+      "flags": {},
+      "order": 32,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "batch_index",
+          "type": "INT",
+          "widget": {
+            "name": "batch_index"
+          },
+          "link": null
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "widget": {
+            "name": "length"
+          },
+          "link": 43
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            9,
+            10,
+            45
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageFromBatch"
+      },
+      "widgets_values": [
+        0,
+        48
+      ]
+    },
+    {
+      "id": 34,
+      "type": "GetImageSize",
+      "title": "读取前段裁切帧数",
+      "pos": [
+        865,
+        520
+      ],
+      "size": [
+        245,
+        110
+      ],
+      "flags": {},
+      "order": 33,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 44
+        }
+      ],
+      "outputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "links": [],
+          "slot_index": 0
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "batch_size",
+          "type": "INT",
+          "links": [
+            20,
+            46
+          ],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GetImageSize"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 35,
+      "type": "GetImageSize",
+      "title": "读取后段裁切帧数",
+      "pos": [
+        865,
+        820
+      ],
+      "size": [
+        245,
+        110
+      ],
+      "flags": {},
+      "order": 34,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 45
+        }
+      ],
+      "outputs": [
+        {
+          "name": "width",
+          "type": "INT",
+          "links": [],
+          "slot_index": 0
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "batch_size",
+          "type": "INT",
+          "links": [
+            25
+          ],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GetImageSize"
+      },
+      "widgets_values": []
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      3,
+      0,
+      "VIDEO"
+    ],
+    [
+      2,
+      2,
+      0,
+      4,
+      0,
+      "VIDEO"
+    ],
+    [
+      3,
+      3,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      4,
+      0,
+      6,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      32,
+      0,
+      8,
+      0,
+      "IMAGE"
+    ],
+    [
+      7,
+      7,
+      1,
+      8,
+      2,
+      "INT"
+    ],
+    [
+      8,
+      32,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ],
+    [
+      9,
+      33,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      10,
+      33,
+      0,
+      11,
+      0,
+      "IMAGE"
+    ],
+    [
+      11,
+      9,
+      0,
+      12,
+      0,
+      "IMAGE"
+    ],
+    [
+      12,
+      10,
+      0,
+      12,
+      1,
+      "IMAGE"
+    ],
+    [
+      13,
+      13,
+      0,
+      14,
+      0,
+      "INTERP_MODEL"
+    ],
+    [
+      14,
+      12,
+      0,
+      14,
+      1,
+      "IMAGE"
+    ],
+    [
+      15,
+      14,
+      0,
+      15,
+      0,
+      "IMAGE"
+    ],
+    [
+      16,
+      8,
+      0,
+      16,
+      0,
+      "IMAGE"
+    ],
+    [
+      17,
+      15,
+      0,
+      16,
+      1,
+      "IMAGE"
+    ],
+    [
+      18,
+      16,
+      0,
+      17,
+      0,
+      "IMAGE"
+    ],
+    [
+      19,
+      11,
+      0,
+      17,
+      1,
+      "IMAGE"
+    ],
+    [
+      20,
+      34,
+      2,
+      18,
+      0,
+      "INT"
+    ],
+    [
+      21,
+      3,
+      2,
+      18,
+      1,
+      "FLOAT"
+    ],
+    [
+      22,
+      18,
+      0,
+      19,
+      0,
+      "FLOAT"
+    ],
+    [
+      23,
+      19,
+      0,
+      20,
+      0,
+      "AUDIO"
+    ],
+    [
+      24,
+      3,
+      1,
+      20,
+      1,
+      "AUDIO"
+    ],
+    [
+      25,
+      35,
+      2,
+      21,
+      0,
+      "INT"
+    ],
+    [
+      26,
+      4,
+      2,
+      21,
+      1,
+      "FLOAT"
+    ],
+    [
+      27,
+      21,
+      0,
+      22,
+      0,
+      "FLOAT"
+    ],
+    [
+      28,
+      22,
+      0,
+      23,
+      0,
+      "AUDIO"
+    ],
+    [
+      29,
+      4,
+      1,
+      23,
+      1,
+      "AUDIO"
+    ],
+    [
+      30,
+      20,
+      0,
+      24,
+      0,
+      "AUDIO"
+    ],
+    [
+      31,
+      23,
+      0,
+      24,
+      1,
+      "AUDIO"
+    ],
+    [
+      32,
+      17,
+      0,
+      25,
+      0,
+      "IMAGE"
+    ],
+    [
+      33,
+      24,
+      0,
+      25,
+      1,
+      "AUDIO"
+    ],
+    [
+      34,
+      3,
+      2,
+      25,
+      2,
+      "FLOAT"
+    ],
+    [
+      35,
+      25,
+      0,
+      26,
+      0,
+      "VIDEO"
+    ],
+    [
+      36,
+      5,
+      2,
+      30,
+      0,
+      "INT"
+    ],
+    [
+      37,
+      3,
+      2,
+      30,
+      1,
+      "FLOAT"
+    ],
+    [
+      38,
+      28,
+      0,
+      30,
+      2,
+      "FLOAT"
+    ],
+    [
+      39,
+      30,
+      1,
+      32,
+      2,
+      "INT"
+    ],
+    [
+      40,
+      6,
+      2,
+      31,
+      0,
+      "INT"
+    ],
+    [
+      41,
+      4,
+      2,
+      31,
+      1,
+      "FLOAT"
+    ],
+    [
+      42,
+      29,
+      0,
+      31,
+      2,
+      "FLOAT"
+    ],
+    [
+      43,
+      31,
+      1,
+      33,
+      2,
+      "INT"
+    ],
+    [
+      44,
+      32,
+      0,
+      34,
+      0,
+      "IMAGE"
+    ],
+    [
+      45,
+      33,
+      0,
+      35,
+      0,
+      "IMAGE"
+    ],
+    [
+      46,
+      34,
+      2,
+      7,
+      0,
+      "INT"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.77,
+      "offset": [
+        30,
+        45
+      ]
+    }
+  },
+  "version": 0.4
+}

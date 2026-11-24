@@ -1,0 +1,189 @@
+{
+  "media_type": "image",
+  "meta": {
+    "version": "1.0.0",
+    "author": "剧灵",
+    "name": "MiniMax H3 图生图"
+  },
+  "schema_version": "1.0.0",
+  "kind": "comfyui",
+  "workflow": {
+    "1": {
+      "inputs": {
+        "unet_name": "minimax_h3_image_pruned_int8_convrot.safetensors",
+        "weight_dtype": "default"
+      },
+      "class_type": "UNETLoader",
+      "_meta": {
+        "title": "主模型 · MiniMax H3-Image INT8"
+      }
+    },
+    "2": {
+      "inputs": {
+        "clip_name": "qwen3vl_32b_minimax_h3_int8_convrot.safetensors",
+        "type": "minimax",
+        "device": "default"
+      },
+      "class_type": "CLIPLoader",
+      "_meta": {
+        "title": "文本编码器 · Qwen3-VL INT8"
+      }
+    },
+    "3": {
+      "inputs": {
+        "vae_name": "minimax_h3_image_vae_fp16.safetensors"
+      },
+      "class_type": "VAELoader",
+      "_meta": {
+        "title": "VAE · MiniMax H3-Image FP16"
+      }
+    },
+    "5": {
+      "inputs": {
+        "prompt": "Ultraman Taro uses Codex to write code.",
+        "width": 4096,
+        "height": 4096,
+        "clip": [
+          "2",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ],
+        "references": [
+          "11",
+          0
+        ]
+      },
+      "class_type": "H3MultiRefConditioning",
+      "_meta": {
+        "title": "MiniMax H3-Image · 0 图文生图 / 多图参考"
+      }
+    },
+    "7": {
+      "inputs": {
+        "seed": 42,
+        "steps": 6,
+        "cfg": 1,
+        "sampler_name": "euler",
+        "scheduler": "simple",
+        "denoise": 1,
+        "model": [
+          "1",
+          0
+        ],
+        "positive": [
+          "5",
+          0
+        ],
+        "negative": [
+          "12",
+          0
+        ],
+        "latent_image": [
+          "5",
+          1
+        ]
+      },
+      "class_type": "KSampler",
+      "_meta": {
+        "title": "KSampler · CFG 1.0"
+      }
+    },
+    "8": {
+      "inputs": {
+        "samples": [
+          "7",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ]
+      },
+      "class_type": "VAEDecode",
+      "_meta": {
+        "title": "VAE 解码"
+      }
+    },
+    "9": {
+      "inputs": {
+        "filename_prefix": "MiniMax-H3-Image/multi_ref_0_15_4k_cfg1",
+        "images": [
+          "8",
+          0
+        ]
+      },
+      "class_type": "SaveImage",
+      "_meta": {
+        "title": "保存图片"
+      }
+    },
+    "11": {
+      "inputs": {
+        "refs_json": "[]"
+      },
+      "class_type": "H3MultiRefPanel",
+      "_meta": {
+        "title": "H3 Multi REF · 0–16 张图片"
+      }
+    },
+    "12": {
+      "inputs": {
+        "conditioning": [
+          "5",
+          0
+        ]
+      },
+      "class_type": "ConditioningZeroOut",
+      "_meta": {
+        "title": "负向条件置零（不编码负面提示词）"
+      }
+    }
+  },
+  "bindings": {
+    "height": [
+      {
+        "node": "5",
+        "class_type": "H3MultiRefConditioning",
+        "input": "height"
+      }
+    ],
+    "prompt": [
+      {
+        "node": "5",
+        "class_type": "H3MultiRefConditioning",
+        "input": "prompt"
+      }
+    ],
+    "output": [
+      {
+        "node": "9",
+        "class_type": "SaveImage"
+      }
+    ],
+    "width": [
+      {
+        "node": "5",
+        "class_type": "H3MultiRefConditioning",
+        "input": "width"
+      }
+    ],
+    "seed": [
+      {
+        "input": "seed",
+        "node": "7",
+        "policy": "random",
+        "class_type": "KSampler"
+      }
+    ],
+    "reference_images": [
+      {
+        "node": "11",
+        "input": "refs_json",
+        "class_type": "H3MultiRefPanel"
+      }
+    ]
+  }
+}

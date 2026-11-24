@@ -1,0 +1,908 @@
+{
+  "kind": "comfyui",
+  "schema_version": "1.0.0",
+  "meta": {
+    "name": "H3 Director · Pika 6 + 2× + TaoMate 3",
+    "author": "剧灵",
+    "version": "1.0.0"
+  },
+  "media_type": "video",
+  "continuity": "minimax_h3",
+  "workflow": {
+    "1": {
+      "inputs": {
+        "unet_name": "minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+        "weight_dtype": "default"
+      },
+      "class_type": "UNETLoader",
+      "_meta": {
+        "title": "一阶段：H3 Ref2VA 底模",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "2": {
+      "inputs": {
+        "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+        "type": "minimax",
+        "device": "default"
+      },
+      "class_type": "CLIPLoader",
+      "_meta": {
+        "title": "共享 Qwen3-VL INT8 编码器",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "3": {
+      "inputs": {
+        "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+      },
+      "class_type": "VAELoader",
+      "_meta": {
+        "title": "共享 H3 视频 VAE",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "4": {
+      "inputs": {
+        "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+      },
+      "class_type": "VAELoader",
+      "_meta": {
+        "title": "共享 H3 音频 VAE",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "10": {
+      "inputs": {
+        "lora_name": "pika_h3_flex_ref2va_v1_bf16.safetensors",
+        "strength_model": 1,
+        "model": [
+          "1",
+          0
+        ]
+      },
+      "class_type": "LoraLoaderModelOnly",
+      "_meta": {
+        "title": "Pika Ref2VA LoRA：1.0",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "11": {
+      "inputs": {
+        "sigmas": "1.0, 0.972973, 0.923077, 0.8, 0.571429, 0.333333, 0.0"
+      },
+      "class_type": "ManualSigmas",
+      "_meta": {
+        "title": "Pika 官方 6 步噪声表",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "20": {
+      "inputs": {
+        "task_type": "r2v — 参考主体生视频(Reference to Video)",
+        "global_prompt": "",
+        "bd_grp_sample": "采样设置",
+        "cfg": 1,
+        "seed": 20261114,
+        "frame_rate": 24,
+        "width": 704,
+        "height": 384,
+        "ref_max_size": 704,
+        "total_frames": 124,
+        "timeline_data": "{}",
+        "bd_grp_advanced": "高级采样",
+        "steps": 6,
+        "sampler": "lcm",
+        "scheduler": "simple",
+        "shift_video": 12,
+        "shift_audio": 3,
+        "export_source_images": false,
+        "export_pre_face_refine": false,
+        "bd_grp_perf": true,
+        "clear_vram_between_segments": false,
+        "clear_vram_before_refine": "raw",
+        "clear_vram_before_face_refine": false,
+        "cache_frames_codec": "ffv1",
+        "cache_name": "MiniMax_H3_Director_9I3V3A_Pika6_TaoMate3_2x_EXPERIMENTAL",
+        "model": [
+          "10",
+          0
+        ],
+        "video_vae": [
+          "3",
+          0
+        ],
+        "audio_vae": [
+          "4",
+          0
+        ],
+        "clip": [
+          "2",
+          0
+        ],
+        "sigmas": [
+          "11",
+          0
+        ],
+        "i2v_groups": [
+          "91",
+          0
+        ],
+        "r2v_groups": [
+          "90",
+          0
+        ]
+      },
+      "class_type": "MiniMaxH3Director",
+      "_meta": {
+        "title": "Pika 6 步，3 段连续生成，22 帧 AV 上下文",
+        "aux_id": "AIMixer/ComfyUI_MiniMaxH3_Director"
+      }
+    },
+    "30": {
+      "inputs": {
+        "tile_size": 512,
+        "overlap": 64,
+        "temporal_size": 64,
+        "temporal_overlap": 8,
+        "pixels": [
+          "20",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ]
+      },
+      "class_type": "VAEEncodeTiled",
+      "_meta": {
+        "title": "一采视频重新编码：不携带 Ref2VA 条件",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "31": {
+      "inputs": {
+        "model_name": "minimax_h3_latent_upscaler_2d_conv_v1_fp16.safetensors",
+        "mode": "scale by multiplier",
+        "mode.scale": 2,
+        "sharpness": 1,
+        "align": 32,
+        "temporal_chunking": "chunked",
+        "temporal_chunking.chunk_frames": 32,
+        "force_unload": true,
+        "device": "cuda",
+        "precision": "fp16",
+        "latent": [
+          "30",
+          0
+        ]
+      },
+      "class_type": "MinimaxH3LatentUpscalerNode2D",
+      "_meta": {
+        "title": "H3 latent 2×，704×384 放大为 1408×768",
+        "aux_id": "LBH-123-AI/Comfyui_Minimax_h3_latent_Upscaler"
+      }
+    },
+    "32": {
+      "inputs": {
+        "audio": [
+          "20",
+          1
+        ],
+        "vae": [
+          "4",
+          0
+        ]
+      },
+      "class_type": "VAEEncodeAudio",
+      "_meta": {
+        "title": "一采原始音频重新编码",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "33": {
+      "inputs": {
+        "value": 0,
+        "width": 64,
+        "height": 64
+      },
+      "class_type": "SolidMask",
+      "_meta": {
+        "title": "音频重绘遮罩：0",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "34": {
+      "inputs": {
+        "samples": [
+          "32",
+          0
+        ],
+        "mask": [
+          "33",
+          0
+        ]
+      },
+      "class_type": "SetLatentNoiseMask",
+      "_meta": {
+        "title": "二采冻结音频 latent",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "35": {
+      "inputs": {
+        "video_latent": [
+          "31",
+          0
+        ],
+        "audio_latent": [
+          "34",
+          0
+        ]
+      },
+      "class_type": "LTXVConcatAVLatent",
+      "_meta": {
+        "title": "放大视频 + 冻结音频",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "40": {
+      "inputs": {
+        "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "weight_dtype": "default"
+      },
+      "class_type": "UNETLoader",
+      "_meta": {
+        "title": "二阶段独立 H3 FL2VA 底模",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "41": {
+      "inputs": {
+        "lora_name": "minimax_h3_taomate_3step_lora_avg_rank_19_bf16.safetensors",
+        "strength_model": 0.8,
+        "model": [
+          "40",
+          0
+        ]
+      },
+      "class_type": "LoraLoaderModelOnly",
+      "_meta": {
+        "title": "独立 TaoMate 3 步 LoRA（Kijai 转换）",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "42": {
+      "inputs": {
+        "shift_video": 12,
+        "shift_audio": 3,
+        "model": [
+          "41",
+          0
+        ]
+      },
+      "class_type": "MiniMaxH3SigmaShift",
+      "_meta": {
+        "title": "TaoMate 音视频 shift：12 / 3",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "43": {
+      "inputs": {
+        "text": "",
+        "clip": [
+          "2",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "二采视觉描述：共用于各分组；不写参考标签",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "44": {
+      "inputs": {
+        "sigmas": "0.25, 0.16, 0.08, 0.0"
+      },
+      "class_type": "ManualSigmas",
+      "_meta": {
+        "title": "低噪声细化对比，3 步，起始 sigma 0.25",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "45": {
+      "inputs": {
+        "noise_seed": 20261115
+      },
+      "class_type": "RandomNoise",
+      "_meta": {
+        "title": "二采种子",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "46": {
+      "inputs": {
+        "sampler_name": "euler"
+      },
+      "class_type": "KSamplerSelect",
+      "_meta": {
+        "title": "二采 Euler",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "47": {
+      "inputs": {
+        "model": [
+          "42",
+          0
+        ],
+        "conditioning": [
+          "43",
+          0
+        ]
+      },
+      "class_type": "BasicGuider",
+      "_meta": {
+        "title": "二采 CFG 1：纯 FL2VA 文本条件",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "48": {
+      "inputs": {
+        "noise": [
+          "45",
+          0
+        ],
+        "guider": [
+          "47",
+          0
+        ],
+        "sampler": [
+          "46",
+          0
+        ],
+        "sigmas": [
+          "44",
+          0
+        ],
+        "latent_image": [
+          "35",
+          0
+        ]
+      },
+      "class_type": "SamplerCustomAdvanced",
+      "_meta": {
+        "title": "TaoMate：3 步实验性细化",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "50": {
+      "inputs": {
+        "tile_size": 512,
+        "overlap": 64,
+        "temporal_size": 64,
+        "temporal_overlap": 8,
+        "samples": [
+          "48",
+          0
+        ],
+        "vae": [
+          "3",
+          0
+        ]
+      },
+      "class_type": "VAEDecodeTiled",
+      "_meta": {
+        "title": "二采放大视频分块解码",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "51": {
+      "inputs": {
+        "fps": [
+          "20",
+          2
+        ],
+        "bit_depth": "auto",
+        "color_space": "sRGB",
+        "chroma_subsampling": "auto",
+        "codec": "none",
+        "images": [
+          "50",
+          0
+        ],
+        "audio": [
+          "20",
+          1
+        ]
+      },
+      "class_type": "CreateVideo",
+      "_meta": {
+        "title": "沿用导演台原始音频与 FPS",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "52": {
+      "inputs": {
+        "filename_prefix": "video/JuLing_Pika6_H3_2x_TaoMate_Continuity",
+        "format": "mp4",
+        "format.codec": "auto",
+        "codec": "auto",
+        "video": [
+          "51",
+          0
+        ]
+      },
+      "class_type": "SaveVideo",
+      "_meta": {
+        "title": "保存放大成片 MP4",
+        "cnr_id": "comfy-core"
+      }
+    },
+    "90": {
+      "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+      "inputs": {
+        "prompt": "",
+        "duration_sec": 5.0,
+        "ref_image_size": "match",
+        "ref_images.ref_image_0": [
+          "100",
+          0
+        ],
+        "ref_images.ref_image_1": [
+          "101",
+          0
+        ],
+        "ref_images.ref_image_2": [
+          "102",
+          0
+        ],
+        "ref_images.ref_image_3": [
+          "103",
+          0
+        ],
+        "ref_images.ref_image_4": [
+          "104",
+          0
+        ],
+        "ref_images.ref_image_5": [
+          "105",
+          0
+        ],
+        "ref_images.ref_image_6": [
+          "106",
+          0
+        ],
+        "ref_images.ref_image_7": [
+          "107",
+          0
+        ],
+        "ref_images.ref_image_8": [
+          "108",
+          0
+        ],
+        "ref_audios.ref_audio_0": [
+          "110",
+          0
+        ],
+        "ref_videos.ref_video_0": [
+          "121",
+          0
+        ],
+        "ref_video_audios.ref_video_audio_0": [
+          "121",
+          1
+        ],
+        "ref_audios.ref_audio_1": [
+          "111",
+          0
+        ],
+        "ref_videos.ref_video_1": [
+          "123",
+          0
+        ],
+        "ref_video_audios.ref_video_audio_1": [
+          "123",
+          1
+        ],
+        "ref_audios.ref_audio_2": [
+          "112",
+          0
+        ],
+        "ref_videos.ref_video_2": [
+          "125",
+          0
+        ],
+        "ref_video_audios.ref_video_audio_2": [
+          "125",
+          1
+        ]
+      }
+    },
+    "91": {
+      "class_type": "MiniMaxH3DirectorGroupImageToVideo",
+      "inputs": {
+        "prompt": "",
+        "duration_sec": 5.0,
+        "first_frame": [
+          "130",
+          0
+        ],
+        "last_frame": [
+          "131",
+          0
+        ]
+      }
+    },
+    "100": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": ""
+      }
+    },
+    "101": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": ""
+      }
+    },
+    "102": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": ""
+      }
+    },
+    "103": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": ""
+      }
+    },
+    "104": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": ""
+      }
+    },
+    "105": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": ""
+      }
+    },
+    "106": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": ""
+      }
+    },
+    "107": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": ""
+      }
+    },
+    "108": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": ""
+      }
+    },
+    "110": {
+      "class_type": "LoadAudio",
+      "inputs": {
+        "audio": ""
+      }
+    },
+    "120": {
+      "class_type": "LoadVideo",
+      "inputs": {
+        "file": ""
+      }
+    },
+    "121": {
+      "class_type": "GetVideoComponents",
+      "inputs": {
+        "video": [
+          "120",
+          0
+        ]
+      }
+    },
+    "111": {
+      "class_type": "LoadAudio",
+      "inputs": {
+        "audio": ""
+      }
+    },
+    "122": {
+      "class_type": "LoadVideo",
+      "inputs": {
+        "file": ""
+      }
+    },
+    "123": {
+      "class_type": "GetVideoComponents",
+      "inputs": {
+        "video": [
+          "122",
+          0
+        ]
+      }
+    },
+    "112": {
+      "class_type": "LoadAudio",
+      "inputs": {
+        "audio": ""
+      }
+    },
+    "124": {
+      "class_type": "LoadVideo",
+      "inputs": {
+        "file": ""
+      }
+    },
+    "125": {
+      "class_type": "GetVideoComponents",
+      "inputs": {
+        "video": [
+          "124",
+          0
+        ]
+      }
+    },
+    "130": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": ""
+      }
+    },
+    "131": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": ""
+      }
+    }
+  },
+  "bindings": {
+    "prompt": [
+      {
+        "node": "90",
+        "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+        "input": "prompt"
+      },
+      {
+        "node": "91",
+        "class_type": "MiniMaxH3DirectorGroupImageToVideo",
+        "input": "prompt"
+      },
+      {
+        "node": "43",
+        "class_type": "CLIPTextEncode",
+        "input": "text"
+      }
+    ],
+    "output": [
+      {
+        "node": "52",
+        "class_type": "SaveVideo"
+      }
+    ],
+    "seed": [
+      {
+        "node": "20",
+        "class_type": "MiniMaxH3Director",
+        "input": "seed"
+      },
+      {
+        "node": "45",
+        "class_type": "RandomNoise",
+        "input": "noise_seed"
+      }
+    ],
+    "width": [
+      {
+        "node": "20",
+        "class_type": "MiniMaxH3Director",
+        "input": "width",
+        "step": 32
+      }
+    ],
+    "height": [
+      {
+        "node": "20",
+        "class_type": "MiniMaxH3Director",
+        "input": "height",
+        "step": 32
+      }
+    ],
+    "frames": [
+      {
+        "node": "20",
+        "class_type": "MiniMaxH3Director",
+        "input": "total_frames",
+        "fps": 24,
+        "step": 1
+      }
+    ],
+    "fps": [
+      {
+        "node": "20",
+        "class_type": "MiniMaxH3Director",
+        "input": "frame_rate",
+        "direction": "read"
+      }
+    ],
+    "reference_images": [
+      {
+        "node": "100",
+        "class_type": "LoadImage",
+        "input": "image",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_images.ref_image_0"
+        }
+      },
+      {
+        "node": "101",
+        "class_type": "LoadImage",
+        "input": "image",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_images.ref_image_1"
+        }
+      },
+      {
+        "node": "102",
+        "class_type": "LoadImage",
+        "input": "image",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_images.ref_image_2"
+        }
+      },
+      {
+        "node": "103",
+        "class_type": "LoadImage",
+        "input": "image",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_images.ref_image_3"
+        }
+      },
+      {
+        "node": "104",
+        "class_type": "LoadImage",
+        "input": "image",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_images.ref_image_4"
+        }
+      },
+      {
+        "node": "105",
+        "class_type": "LoadImage",
+        "input": "image",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_images.ref_image_5"
+        }
+      },
+      {
+        "node": "106",
+        "class_type": "LoadImage",
+        "input": "image",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_images.ref_image_6"
+        }
+      },
+      {
+        "node": "107",
+        "class_type": "LoadImage",
+        "input": "image",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_images.ref_image_7"
+        }
+      },
+      {
+        "node": "108",
+        "class_type": "LoadImage",
+        "input": "image",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_images.ref_image_8"
+        }
+      }
+    ],
+    "reference_videos": [
+      {
+        "node": "120",
+        "class_type": "LoadVideo",
+        "input": "file",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_videos.ref_video_0"
+        }
+      },
+      {
+        "node": "122",
+        "class_type": "LoadVideo",
+        "input": "file",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_videos.ref_video_1"
+        }
+      },
+      {
+        "node": "124",
+        "class_type": "LoadVideo",
+        "input": "file",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_videos.ref_video_2"
+        }
+      }
+    ],
+    "reference_audio": [
+      {
+        "node": "110",
+        "class_type": "LoadAudio",
+        "input": "audio",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_audios.ref_audio_0"
+        }
+      },
+      {
+        "node": "111",
+        "class_type": "LoadAudio",
+        "input": "audio",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_audios.ref_audio_1"
+        }
+      },
+      {
+        "node": "112",
+        "class_type": "LoadAudio",
+        "input": "audio",
+        "consumer": {
+          "node": "90",
+          "class_type": "MiniMaxH3DirectorGroupReferenceToVideo",
+          "input": "ref_audios.ref_audio_2"
+        }
+      }
+    ],
+    "start_image": [
+      {
+        "node": "130",
+        "class_type": "LoadImage",
+        "input": "image"
+      }
+    ],
+    "end_image": [
+      {
+        "node": "131",
+        "class_type": "LoadImage",
+        "input": "image"
+      }
+    ]
+  }
+}

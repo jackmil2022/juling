@@ -1,0 +1,381 @@
+{
+  "1": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "2": {
+    "class_type": "CLIPLoader",
+    "inputs": {
+      "clip_name": "qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors",
+      "type": "minimax",
+      "device": "default"
+    }
+  },
+  "3": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_audio_vae_fp32.safetensors"
+    }
+  },
+  "5": {
+    "class_type": "MiniMaxH3SigmaShift",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "shift_video": 12.0,
+      "shift_audio": 3.0
+    }
+  },
+  "6": {
+    "class_type": "LoadImage",
+    "inputs": {
+      "image": "JuLing_H3_anchor_reference_20261119.png"
+    }
+  },
+  "7": {
+    "class_type": "MiniMaxH3ImageToVideo",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "prompt": "首段镜头。保持主体、服装、光线和镜头语言稳定，镜头缓慢推进，动作自然连续。",
+      "width": 1024,
+      "height": 576,
+      "length": 124,
+      "first_frame": [
+        "6",
+        0
+      ]
+    }
+  },
+  "8": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 123456789
+    }
+  },
+  "9": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "5",
+        0
+      ],
+      "conditioning": [
+        "7",
+        0
+      ]
+    }
+  },
+  "10": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "11": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": [
+        "5",
+        0
+      ],
+      "scheduler": "simple",
+      "steps": 8,
+      "denoise": 1.0
+    }
+  },
+  "12": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "8",
+        0
+      ],
+      "guider": [
+        "9",
+        0
+      ],
+      "sampler": [
+        "10",
+        0
+      ],
+      "sigmas": [
+        "11",
+        0
+      ],
+      "latent_image": [
+        "7",
+        1
+      ]
+    }
+  },
+  "13": {
+    "class_type": "MiniMaxH3MotionContextSaveLatent",
+    "inputs": {
+      "latent": [
+        "12",
+        0
+      ],
+      "filename_prefix": "h3_context/clip",
+      "clip_index": 1
+    }
+  },
+  "14": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "12",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "15": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "12",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "16": {
+    "class_type": "MiniMaxH3ImageToVideo",
+    "inputs": {
+      "clip": [
+        "2",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "prompt": "二段镜头。延续上一段动作和摄影机运动，自然向前发展，保持角色身份、服装、环境和色彩连续。",
+      "width": 1024,
+      "height": 576,
+      "length": 124
+    }
+  },
+  "17": {
+    "class_type": "MiniMaxH3MotionContext",
+    "inputs": {
+      "conditioning": [
+        "16",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ],
+      "latent": [
+        "16",
+        1
+      ],
+      "context_length": "22",
+      "audio_context_length": 18,
+      "context_latent": [
+        "12",
+        0
+      ],
+      "audio_vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "18": {
+    "class_type": "RandomNoise",
+    "inputs": {
+      "noise_seed": 987654321
+    }
+  },
+  "19": {
+    "class_type": "BasicGuider",
+    "inputs": {
+      "model": [
+        "5",
+        0
+      ],
+      "conditioning": [
+        "17",
+        0
+      ]
+    }
+  },
+  "20": {
+    "class_type": "KSamplerSelect",
+    "inputs": {
+      "sampler_name": "euler"
+    }
+  },
+  "21": {
+    "class_type": "BasicScheduler",
+    "inputs": {
+      "model": [
+        "5",
+        0
+      ],
+      "scheduler": "simple",
+      "steps": 8,
+      "denoise": 1.0
+    }
+  },
+  "22": {
+    "class_type": "SamplerCustomAdvanced",
+    "inputs": {
+      "noise": [
+        "18",
+        0
+      ],
+      "guider": [
+        "19",
+        0
+      ],
+      "sampler": [
+        "20",
+        0
+      ],
+      "sigmas": [
+        "21",
+        0
+      ],
+      "latent_image": [
+        "16",
+        1
+      ]
+    }
+  },
+  "23": {
+    "class_type": "MiniMaxH3MotionContextSaveLatent",
+    "inputs": {
+      "latent": [
+        "22",
+        0
+      ],
+      "filename_prefix": "h3_context/clip",
+      "clip_index": 2
+    }
+  },
+  "24": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": [
+        "22",
+        0
+      ],
+      "vae": [
+        "3",
+        0
+      ]
+    }
+  },
+  "25": {
+    "class_type": "VAEDecodeAudio",
+    "inputs": {
+      "samples": [
+        "22",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    }
+  },
+  "26": {
+    "class_type": "MiniMaxH3MotionContextTrim",
+    "inputs": {
+      "images": [
+        "24",
+        0
+      ],
+      "trim_frames": [
+        "17",
+        1
+      ],
+      "audio": [
+        "25",
+        0
+      ],
+      "fps": 24.0,
+      "match_tail": true
+    }
+  },
+  "27": {
+    "class_type": "ImageBatch",
+    "inputs": {
+      "image1": [
+        "14",
+        0
+      ],
+      "image2": [
+        "26",
+        0
+      ]
+    }
+  },
+  "28": {
+    "class_type": "AudioConcat",
+    "inputs": {
+      "audio1": [
+        "15",
+        0
+      ],
+      "audio2": [
+        "26",
+        1
+      ],
+      "direction": "after"
+    }
+  },
+  "29": {
+    "class_type": "CreateVideo",
+    "inputs": {
+      "images": [
+        "27",
+        0
+      ],
+      "audio": [
+        "28",
+        0
+      ],
+      "fps": 24.0
+    }
+  },
+  "30": {
+    "class_type": "SaveVideo",
+    "inputs": {
+      "video": [
+        "29",
+        0
+      ],
+      "filename_prefix": "video/JuLing_H3_MotionContext_Optimized",
+      "format": "auto",
+      "codec": "auto"
+    }
+  }
+}

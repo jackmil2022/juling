@@ -1,0 +1,26 @@
+{
+  "alexs-davinci-editing-skills": {
+    "repo": "Forward-Future/alexs-davinci-editing-skills",
+    "commit": "984c321a45debcd7c207953dc3169d6992d14b15"
+  },
+  "broomva-skills": {
+    "repo": "broomva/skills",
+    "commit": "3060ed220c1bab75aba301a5c0f75625d681b134"
+  },
+  "color-grading-skill": {
+    "repo": "kajisho5/color-grading-skill",
+    "commit": "f679706b9993fcc849b39f9ccd0cbf2fa776d115"
+  },
+  "ffmpeg-skill": {
+    "repo": "kajisho5/ffmpeg-skill",
+    "commit": "7d1a9f04cb01689fb97ba3f99edd17eab9b0e7ac"
+  },
+  "media-analysis-skill": {
+    "repo": "kajisho5/media-analysis-skill",
+    "commit": "a11b408f9a9232aa891fe3cd3095955c2c2af2b8"
+  },
+  "vidmoat-skills": {
+    "repo": "vidmoat/skills",
+    "commit": "ec2c2a944a2d4524d4b3affc6af315511946d6b5"
+  }
+}
